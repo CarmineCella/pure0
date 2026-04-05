@@ -247,7 +247,7 @@
 (def left  (osc sr (* (ones dur1) 330) sine-tab))
 (def right (osc sr (* (ones dur1) 440) sine-tab))
 
-; interleave manually
+; interleave manually (slow for large signals, but fine for the demo)
 (def stereo-len (* (len left) 2))
 (def interleave-lr (lambda (l r)
   (def n (len l))

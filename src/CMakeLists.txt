@@ -6,6 +6,7 @@ set(PURE0_SOURCES
     pure0.cpp
     ../src/core.h
     ../src/dsp.h
+    ../src/music.h  
 )
 
 add_executable(pure0

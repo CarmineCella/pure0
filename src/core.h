@@ -394,8 +394,9 @@ static Proc fn_load() {
         std::ifstream in(name);
         if (!in) {
             const char* home = std::getenv("HOME");
-            std::string fallback = home + (std::string) "/.pure0";
-            std::ifstream f(fallback);
+            std::string fallback = home + (std::string) "/.pure0/" + name;
+            std::cout << home << " " <<fallback << std::endl;
+            std::ifstream in(fallback);
             if (!in) throw std::runtime_error("cannot open file for loading " + name);
             TokenStream ts{in};
             ExprPtr result = make_scalar(0.0);

@@ -22,7 +22,7 @@
 // buf: interleaved (re, im) pairs, length = 2*N, N must be a power of 2.
 // sign = -1 → forward,  +1 → inverse (unnormalized; caller divides by N).
 
-static void p0_fft(double* buf, int N, int sign) {
+static void fft(double* buf, int N, int sign) {
     // bit-reversal permutation
     for (int i = 1, j = 0; i < N; ++i) {
         int bit = N >> 1;
@@ -55,7 +55,7 @@ static void p0_fft(double* buf, int N, int sign) {
     }
 }
 
-static int p0_next_pow2(int n) {
+static int next_pow2(int n) {
     if (n <= 1) return 1;
     int p = 1;
     while (p < n) p <<= 1;
@@ -64,38 +64,38 @@ static int p0_next_pow2(int n) {
 
 // ── internal helpers ──────────────────────────────────────────────────────────
 
-static Vector p0_conv(const Vector& x, const Vector& y) {
+static Vector conv(const Vector& x, const Vector& y) {
     int sx = (int)x.size(), sy = (int)y.size();
     if (sx == 0 || sy == 0) return Vector(0.0, 0);
     int conv_len = sx + sy - 1;
-    int N = p0_next_pow2(conv_len);
+    int N = next_pow2(conv_len);
     std::vector<double> X(2*N, 0.0), Y(2*N, 0.0), R(2*N, 0.0);
     for (int i = 0; i < N; ++i) {
         X[2*i] = i < sx ? x[i] : 0.0;
         Y[2*i] = i < sy ? y[i] : 0.0;
     }
-    p0_fft(X.data(), N, -1);
-    p0_fft(Y.data(), N, -1);
+    fft(X.data(), N, -1);
+    fft(Y.data(), N, -1);
     for (int i = 0; i < N; ++i) {
         double xr=X[2*i], xi=X[2*i+1], yr=Y[2*i], yi=Y[2*i+1];
         R[2*i]   = xr*yr - xi*yi;
         R[2*i+1] = xr*yi + xi*yr;
     }
-    p0_fft(R.data(), N, +1);
+    fft(R.data(), N, +1);
     Vector out(conv_len);
     for (int i = 0; i < conv_len; ++i) out[i] = R[2*i] / N;
     return out;
 }
 
-static Vector p0_resample(const Vector& x, double factor) {
+static Vector resample(const Vector& x, double factor) {
     int in_len = (int)x.size();
     if (in_len == 0 || factor <= 0.0) return Vector(0.0, 0);
     int out_len = std::max(1, (int)std::floor(in_len * factor + 0.5));
-    int N1 = p0_next_pow2(in_len);
-    int N2 = p0_next_pow2(out_len);
+    int N1 = next_pow2(in_len);
+    int N2 = next_pow2(out_len);
     std::vector<double> X(2*N1, 0.0);
     for (int i = 0; i < N1; ++i) X[2*i] = i < in_len ? x[i] : 0.0;
-    p0_fft(X.data(), N1, -1);
+    fft(X.data(), N1, -1);
     std::vector<double> Y(2*N2, 0.0);
     int Nc = std::min(N1/2, N2/2);
     Y[0] = X[0]; Y[1] = X[1];
@@ -106,7 +106,7 @@ static Vector p0_resample(const Vector& x, double factor) {
     if (N1 % 2 == 0 && N2 % 2 == 0) {
         Y[N2] = X[N1]; Y[N2+1] = X[N1+1];
     }
-    p0_fft(Y.data(), N2, +1);
+    fft(Y.data(), N2, +1);
     Vector out(out_len);
     for (int i = 0; i < out_len; ++i) out[i] = Y[2*i] / N2;
     return out;
@@ -137,7 +137,7 @@ static uint32_t wav_read_le32(std::istream& in) {
 // freq  : vector of instantaneous Hz values, one per output sample
 // table : wavetable with guard point (last sample == first sample)
 // returns a vector of the same length as freq
-static Proc dsp_osc() {
+static Proc fn_osc() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 3)
             throw std::runtime_error("osc expects: sr freq table");
@@ -163,15 +163,15 @@ static Proc dsp_osc() {
 
 // (fft sig) → interleaved complex vector [re0 im0 re1 im1 ...]
 // Zero-pads to next power of 2. Spectrum length = 2 * next_pow2(len(sig)).
-static Proc dsp_fft() {
+static Proc fn_fft() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("fft expects: sig");
         Vector sig = as_vec(args[0]);
         int d = (int)sig.size();
-        int N = p0_next_pow2(d);
+        int N = next_pow2(d);
         std::vector<double> buf(2*N, 0.0);
         for (int i = 0; i < d; ++i) buf[2*i] = sig[i];
-        p0_fft(buf.data(), N, -1);
+        fft(buf.data(), N, -1);
         Vector out(2*N);
         for (int i = 0; i < 2*N; ++i) out[i] = buf[i];
         return make_vec(out);
@@ -180,7 +180,7 @@ static Proc dsp_fft() {
 
 // (ifft spectrum) → real signal
 // spectrum: interleaved complex [re0 im0 re1 im1 ...]
-static Proc dsp_ifft() {
+static Proc fn_ifft() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("ifft expects: spectrum");
         Vector spec = as_vec(args[0]);
@@ -189,7 +189,7 @@ static Proc dsp_ifft() {
         int N = len / 2;
         std::vector<double> buf(len);
         for (int i = 0; i < len; ++i) buf[i] = spec[i];
-        p0_fft(buf.data(), N, +1);
+        fft(buf.data(), N, +1);
         Vector out(N);
         for (int i = 0; i < N; ++i) out[i] = buf[2*i] / N;
         return make_vec(out);
@@ -197,7 +197,7 @@ static Proc dsp_ifft() {
 }
 
 // (car2pol spectrum) — cartesian (re, im) → polar (magnitude, phase)
-static Proc dsp_car2pol() {
+static Proc fn_car2pol() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("car2pol expects: spectrum");
         Vector v = as_vec(args[0]);
@@ -213,7 +213,7 @@ static Proc dsp_car2pol() {
 }
 
 // (pol2car spectrum) — polar (magnitude, phase) → cartesian (re, im)
-static Proc dsp_pol2car() {
+static Proc fn_pol2car() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("pol2car expects: spectrum");
         Vector v = as_vec(args[0]);
@@ -233,7 +233,7 @@ static Proc dsp_pol2car() {
 // Hamming:  (window n 0.54 0.46 0.0)
 // Blackman: (window n 0.42 0.5  0.08)
 // Rect:     (window n 1.0  0.0  0.0)
-static Proc dsp_window() {
+static Proc fn_window() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 4) throw std::runtime_error("window expects: n a0 a1 a2");
         int N = (int)as_scalar(args[0]);
@@ -251,25 +251,25 @@ static Proc dsp_window() {
 }
 
 // (conv x y) — linear convolution via FFT overlap-add
-static Proc dsp_conv() {
+static Proc fn_conv() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2) throw std::runtime_error("conv expects: x y");
-        return make_vec(p0_conv(as_vec(args[0]), as_vec(args[1])));
+        return make_vec(conv(as_vec(args[0]), as_vec(args[1])));
     };
 }
 
 // (resample sig factor) — frequency-domain resampling
 // factor > 1 → upsample,  factor < 1 → downsample
-static Proc dsp_resample() {
+static Proc fn_resample() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2) throw std::runtime_error("resample expects: sig factor");
-        return make_vec(p0_resample(as_vec(args[0]), as_scalar(args[1])));
+        return make_vec(resample(as_vec(args[0]), as_scalar(args[1])));
     };
 }
 
 // (delay sig d) — fractional delay via linear interpolation
 // d: delay in samples (may be fractional)
-static Proc dsp_delay() {
+static Proc fn_delay() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2) throw std::runtime_error("delay expects: sig d");
         Vector x = as_vec(args[0]);
@@ -289,7 +289,7 @@ static Proc dsp_delay() {
 }
 
 // (comb sig d g) — feedback comb filter: y[n] = x[n] + g * y[n-d]
-static Proc dsp_comb() {
+static Proc fn_comb() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 3) throw std::runtime_error("comb expects: sig d g");
         Vector x = as_vec(args[0]);
@@ -307,7 +307,7 @@ static Proc dsp_comb() {
 }
 
 // (allpass sig d g) — Schroeder allpass: y[n] = -g*x[n] + x[n-d] + g*y[n-d]
-static Proc dsp_allpass() {
+static Proc fn_allpass() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 3) throw std::runtime_error("allpass expects: sig d g");
         Vector x = as_vec(args[0]);
@@ -328,7 +328,7 @@ static Proc dsp_allpass() {
 // (reson sig sr freq tau) — second-order resonant filter
 // tau: decay time in seconds (controls Q)
 // output length = sr * tau samples
-static Proc dsp_reson() {
+static Proc fn_reson() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 4) throw std::runtime_error("reson expects: sig sr freq tau");
         Vector sig  = as_vec(args[0]);
@@ -356,7 +356,7 @@ static Proc dsp_reson() {
 
 // (iir sig b a) — direct-form II IIR/FIR filter
 // b: numerator coefficients, a: denominator coefficients (a[0] normalized to 1)
-static Proc dsp_iir() {
+static Proc fn_iir() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 3) throw std::runtime_error("iir expects: sig b a");
         Vector x = as_vec(args[0]);
@@ -382,7 +382,7 @@ static Proc dsp_iir() {
 // (iirdesign type fs f0 Q gain_db)
 // type: "lowpass" | "highpass" | "notch" | "peak" | "lowshelf" | "highshelf"
 // returns (list b a) — each is a 3-element vector
-static Proc dsp_iirdesign() {
+static Proc fn_iirdesign() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 5)
             throw std::runtime_error("iirdesign expects: type fs f0 Q gain_db");
@@ -440,7 +440,7 @@ static Proc dsp_iirdesign() {
 
 // (mix offset1 sig1 offset2 sig2 ...) — overlay signals at sample offsets
 // Arguments come in pairs: (offset signal). Returns a single mixed vector.
-static Proc dsp_mix() {
+static Proc fn_mix() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() % 2 != 0)
             throw std::runtime_error("mix expects pairs: offset sig ...");
@@ -462,7 +462,7 @@ static Proc dsp_mix() {
 // (wavwrite sig sr path [nch=1])
 // Writes a 16-bit PCM WAV. sig is interleaved if nch > 1.
 // Peak-normalizes before writing so the loudest sample maps to ±32767.
-static Proc dsp_wavwrite() {
+static Proc fn_wavwrite() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 3 || args.size() > 4)
             throw std::runtime_error("wavwrite expects: sig sr path [nch=1]");
@@ -507,7 +507,7 @@ static Proc dsp_wavwrite() {
 // (wavread path) → (list signal sr nch)
 // signal: interleaved samples normalized to [-1, 1]
 // Supports 8-bit, 16-bit, 24-bit PCM WAV files.
-static Proc dsp_wavread() {
+static Proc fn_wavread() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1 || !is_string(args[0]))
             throw std::runtime_error("wavread expects: path");
@@ -575,7 +575,7 @@ static Proc dsp_wavread() {
 //   sample[i] = sum_j( cj * sin(2*pi*(j+1)*i/n) ) / sum(cj)
 // The guard point (last sample == first sample) is required by osc.
 // Example: (gen 4096 1) → pure sine  (gen 4096 1 0.5 0.25) → 3 harmonics
-static Proc dsp_gen() {
+static Proc fn_gen() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 2)
             throw std::runtime_error("gen expects: n c1 [c2 ...]");
@@ -604,24 +604,24 @@ static Proc dsp_gen() {
 // ── registration ──────────────────────────────────────────────────────────────
 
 static void add_dsp(std::shared_ptr<Env> env) {
-    env->set("gen",          make_proc(dsp_gen()));
-    env->set("osc",          make_proc(dsp_osc()));
-    env->set("fft",          make_proc(dsp_fft()));
-    env->set("ifft",         make_proc(dsp_ifft()));
-    env->set("car2pol",      make_proc(dsp_car2pol()));
-    env->set("pol2car",      make_proc(dsp_pol2car()));
-    env->set("window",       make_proc(dsp_window()));
-    env->set("conv",         make_proc(dsp_conv()));
-    env->set("resample",     make_proc(dsp_resample()));
-    env->set("delay",        make_proc(dsp_delay()));
-    env->set("comb",         make_proc(dsp_comb()));
-    env->set("allpass",      make_proc(dsp_allpass()));
-    env->set("reson",        make_proc(dsp_reson()));
-    env->set("iir",          make_proc(dsp_iir()));
-    env->set("iirdesign",    make_proc(dsp_iirdesign()));
-    env->set("wavread",      make_proc(dsp_wavread()));
-    env->set("wavwrite",     make_proc(dsp_wavwrite()));
-    env->set("mix",          make_proc(dsp_mix()));
+    env->set("gen",          make_proc(fn_gen()));
+    env->set("osc",          make_proc(fn_osc()));
+    env->set("fft",          make_proc(fn_fft()));
+    env->set("ifft",         make_proc(fn_ifft()));
+    env->set("car2pol",      make_proc(fn_car2pol()));
+    env->set("pol2car",      make_proc(fn_pol2car()));
+    env->set("window",       make_proc(fn_window()));
+    env->set("conv",         make_proc(fn_conv()));
+    env->set("resample",     make_proc(fn_resample()));
+    env->set("delay",        make_proc(fn_delay()));
+    env->set("comb",         make_proc(fn_comb()));
+    env->set("allpass",      make_proc(fn_allpass()));
+    env->set("reson",        make_proc(fn_reson()));
+    env->set("iir",          make_proc(fn_iir()));
+    env->set("iirdesign",    make_proc(fn_iirdesign()));
+    env->set("wavread",      make_proc(fn_wavread()));
+    env->set("wavwrite",     make_proc(fn_wavwrite()));
+    env->set("mix",          make_proc(fn_mix()));
 }
 
 // eof
