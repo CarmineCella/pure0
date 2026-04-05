@@ -7,12 +7,15 @@
 #include "core.h"
 #include "dsp.h"
 #include "music.h"
+#include "samplesynth.h"
 
 int main(int argc, char** argv) {
     srand(static_cast<unsigned int>(std::time(nullptr)));
     auto env = make_environment();
     add_dsp(env);
     add_music(env);
+    add_samplesynth(env);
+
     try {
         if (argc > 1) {
             for (int i = 1; i < argc; ++i) {
