@@ -1,6 +1,6 @@
 
 ; ============================================================================
-; orchgran_arc.scm
+; inst-gran_arc.scm
 ; example use of orchestral granulator
 ;
 ; form:
@@ -10,13 +10,7 @@
 ;      dynamics move toward fff
 ;   3) end: returns to the initial situation
 ;
-; requires:
-;   add_samplesynth(env)
-;   add_orchgranulator(env)
 ;
-; output:
-;   orchgran_dark_arc.wav
-;   orchgran_dark_arc_events.scm
 ; ============================================================================
 
 (def sr 48000)
@@ -157,15 +151,15 @@
 ; ----------------------------------------------------------------------------
 
 (def result
-  (orchgran sr dur orchestra
+  (inst-gran sr dur orchestra
             density_curve rand_density_curve
             length_curve rand_length_curve
             octave_range_curve rand_octave_curve
             chord_schedule style_schedule dynamic_schedule
             SOL))
 
-(def sig    (orchgran-signal result))
-(def events (orchgran-events result))
+(def sig    (inst-gran-signal result))
+(def events (inst-gran-events result))
 
-(wavwrite sig sr "orchgran_arc.wav")
-(orchgran-saveevents events "orchgran_arc_events.scm")
+(wavwrite sig sr "inst-gran_arc.wav")
+(inst-gran-saveevents events "inst-gran_arc_events.scm")

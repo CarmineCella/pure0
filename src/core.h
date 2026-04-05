@@ -391,19 +391,18 @@ static Proc fn_load() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env> env) -> ExprPtr {
         if (args.size() != 1 || !is_string(args[0])) throw std::runtime_error("load expects one string path");
         std::string name = as_string(args[0]);
-        std::ifstream in(name);
-        if (!in) {
+        std::ifstream* in = new std::ifstream(name);
+        if (!in->good()) {
             const char* home = std::getenv("HOME");
             std::string fallback = home + (std::string) "/.pure0/" + name;
-            std::cout << home << " " <<fallback << std::endl;
-            std::ifstream in(fallback);
-            if (!in) throw std::runtime_error("cannot open file for loading " + name);
-            TokenStream ts{in};
-            ExprPtr result = make_scalar(0.0);
-            while (!ts.eof()) result = eval(parse_expr(ts), env);
-            return result;
+            in = new std::ifstream(fallback);
+            if (!in->good()) throw std::runtime_error("cannot open file for loading " + name);
         }
-        return {};
+        TokenStream ts{*in};
+        ExprPtr result = make_scalar(0.0);
+        while (!ts.eof()) result = eval(parse_expr(ts), env);
+        delete in;
+        return result;
     };
 }
 static Proc fn_list() {

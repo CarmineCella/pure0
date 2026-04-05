@@ -27,7 +27,7 @@
 
 (def cb_pulse_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 1 0 0 0   0 0 1 0   1 0 0 0   0 1 0 0)
       SOL "Cb" "ord"
       (vec 36 38 35 31 33 38)
@@ -36,7 +36,7 @@
 
 (def vc_bass_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 1 0 1 0   0 0 1 0   1 0 0 0   1 0 0 0)
       SOL "Vc" "ord"
       (vec 36 43 41 38 36 45)
@@ -45,7 +45,7 @@
 
 (def bn_bass_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 1 0 0 0   1 0 0 0   0 0 1 0   0 0 0 0)
       SOL "Bn" "ord"
       (vec 43 45 47 50)
@@ -54,7 +54,7 @@
 
 (def btb_hits
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 1 0 0 0   0 0 0 0   0.8 0 0 0   0 0 0 0)
       SOL "BTb" "ord"
       (vec 35 31 38 43)
@@ -67,7 +67,7 @@
 
 (def va_chops_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 1 0 0   0 1 0 0   0 0 1 0   0 1 0 0)
       SOL "Va" "ord"
       (vec 60 62 65 67 69)
@@ -76,7 +76,7 @@
 
 (def vn_chops_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 0 1 0   0 0 1 0   0 0 1 0   0 0 1 0)
       SOL "Vn" "ord"
       (vec 72 74 76 79 81 83)
@@ -85,7 +85,7 @@
 
 (def vn_chops_b
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 1 0 1   0 0 1 0   0 1 0 0   0 0 1 0)
       SOL "Vn" "ord"
       (vec 74 76 79 81 83 86)
@@ -94,7 +94,7 @@
 
 (def ob_stabs_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 0 0 1   0 0 0 0   0 0 0 1   0 0 0 0)
       SOL "Ob" "ord"
       (vec 79 81 84 86)
@@ -103,7 +103,7 @@
 
 (def cl_reply_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 0 0 0   0 0 1 0   0 0 0 0   0 0 1 0)
       SOL "ClBb" "ord"
       (vec 67 71 74 78)
@@ -112,7 +112,7 @@
 
 (def fl_spark_a
   (norm
-    (sol-arp sr bpm 8
+    (inst-arp sr bpm 8
       SOL "Fl" "ord"
       (vec 84 88 91 96)
       "mf" 8 0)
@@ -120,7 +120,7 @@
 
 (def fl_spark_b
   (norm
-    (sol-arp sr bpm 8
+    (inst-arp sr bpm 8
       SOL "Fl" "ord"
       (vec 86 91 93 98)
       "f" 10 2)
@@ -128,7 +128,7 @@
 
 (def tpc_spikes
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 0 0 0   0 1 0 0   0 0 0 0   0 1 0 0)
       SOL "TpC" "ord"
       (vec 74 78 81 86)
@@ -288,7 +288,7 @@
   (norm
     (bmix sr bpm
       0 mono
-      40 (sol-patnotes sr bpm 16
+      40 (inst-patnotes sr bpm 16
            (vec 0 0 1 0   0 0 0 0   0 0 1 0   0 0 0 0)
            SOL "Ob" "ord"
            (vec 79 84 86)
@@ -299,7 +299,7 @@
   (norm
     (bmix sr bpm
       0 mono
-      56 (sol-patnotes sr bpm 16
+      56 (inst-patnotes sr bpm 16
            (vec 0 0 0 1   0 0 0 0   0 0 0 1   0 0 0 1)
            SOL "Fl" "ord"
            (vec 88 91 96)

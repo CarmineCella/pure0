@@ -37,7 +37,7 @@
 
 (def vc_bass_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 1 0 0 0   0 0 1 0   1 0 0 0   0 0 1 0)
       SOL "Vc" "ord"
       (vec 36 36 43 41 38 36)
@@ -46,7 +46,7 @@
 
 (def vc_bass_b
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 1 0 1 0   0 0 1 0   1 0 0 0   0 0 0 0)
       SOL "Vc" "ord"
       (vec 36 38 41 43 45 41)
@@ -56,7 +56,7 @@
 ; lower support from contrabass
 (def cb_pulse
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 1 0 0 0   1 0 0 0   0.8 0 0 0   1 0 0 0)
       SOL "Cb" "ord"
       (vec 36 36 31 38)
@@ -69,7 +69,7 @@
 
 (def vn_pattern_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 0 1 0   0 0 1 0   0 0 1 0   0 0 1 0)
       SOL "Vn" "ord"
       (vec 72 74 76 79 81 79)
@@ -78,7 +78,7 @@
 
 (def vn_pattern_b
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 1 0 0   0 1 0 0   0 0 1 0   0 1 0 0)
       SOL "Vn" "ord"
       (vec 74 76 79 81 83 81)
@@ -87,7 +87,7 @@
 
 (def vn_pattern_c
   (norm
-    (sol-arp sr bpm 8
+    (inst-arp sr bpm 8
       SOL "Vn" "ord"
       (vec 72 76 79 83)
       "mf" 6 2)
@@ -99,7 +99,7 @@
 
 (def fl_pattern_a
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 0 0 1   0 0 0 0   0 0 0 1   0 0 0 0)
       SOL "Fl" "ord"
       (vec 84 88 91 88)
@@ -108,7 +108,7 @@
 
 (def fl_pattern_b
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 0 0 0 0   0 0 1 0   0 0 0 0   0 0 1 0)
       SOL "Fl" "ord"
       (vec 86 88 91 93)
@@ -117,7 +117,7 @@
 
 (def fl_pattern_c
   (norm
-    (sol-arp sr bpm 8
+    (inst-arp sr bpm 8
       SOL "Fl" "ord"
       (vec 84 88 91 96)
       "mf" 8 0)
@@ -129,7 +129,7 @@
 
 (def cl_mid
   (norm
-    (sol-patnotes sr bpm 8
+    (inst-patnotes sr bpm 8
       (vec 1 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0)
       SOL "ClBb" "ord"
       (vec 60 64 67 71)
@@ -216,7 +216,7 @@
   (norm
     (bmix sr bpm
       0 mono
-      24 (sol-patnotes sr bpm 16
+      24 (inst-patnotes sr bpm 16
            (vec 0 0 1 0   0 0 0 0   0 0 1 0   0 0 0 0)
            SOL "Ob" "ord"
            (vec 79 81 84)
@@ -227,7 +227,7 @@
   (norm
     (bmix sr bpm
       0 mono
-      32 (sol-patnotes sr bpm 16
+      32 (inst-patnotes sr bpm 16
            (vec 0 0 0 1   0 0 0 0   0 0 0 1   0 0 0 0)
            SOL "Bn" "ord"
            (vec 55 59 62)

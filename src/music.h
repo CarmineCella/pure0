@@ -276,7 +276,6 @@ static Vector taper(const Vector& sig, double sr, double attack_s, double releas
 }
 
 static Vector note_voice(double sr, double hz, double dur, double amp, int shape) {
-    std::size_t n = (std::size_t)std::max(1, iround(sr * dur));
     const Vector& main_table = shape_table_ref(shape);
     Vector body = tone(sr, hz, dur, 1.0, main_table);
     Vector sub = tone(sr, hz * 0.5, dur, 1.0, sine_table());

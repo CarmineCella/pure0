@@ -12,7 +12,7 @@
 //
 // The database is symbolic and lazy:
 // - loaddb scans folders recursively and stores metadata + file paths
-// - audio is loaded only when needed by db-load / sol-* primitives
+// - audio is loaded only when needed by catalog-load / inst-* primitives
 //
 // Registration:
 //     add_samplesynth(env);
@@ -242,7 +242,6 @@ static int beat_to_samples(double sr, double bpm, double beats) {
     return (int)std::llround((60.0 * beats * sr) / bpm);
 }
 
-
 static Vector mono_fold(const Vector& interleaved, int nch) {
     if (nch <= 1) return interleaved;
     if (interleaved.size() % (std::size_t)nch != 0)
@@ -340,25 +339,6 @@ static Vector load_mono_resampled(const std::string& path, int target_sr = 0) {
     return sig;
 }
 
-static Vector fit_sample_to_length(const Vector& x, std::size_t new_len) {
-    if (new_len >= x.size()) return x;
-    if (new_len == 0) return Vector(0.0, 0);
-
-    Vector y(new_len);
-    for (std::size_t i = 0; i < new_len; ++i) y[i] = x[i];
-
-    const std::size_t fade = std::min<std::size_t>(
-        std::max<std::size_t>(32, new_len / 8),
-        new_len
-    );
-    const std::size_t start = new_len - fade;
-    for (std::size_t i = 0; i < fade; ++i) {
-        const double g = 1.0 - (double)i / (double)std::max<std::size_t>(1, fade - 1);
-        y[start + i] *= g;
-    }
-    return y;
-}
-
 static Vector extract_db_signal(const ExprPtr& x, int target_sr = 0) {
     if (is_string(x)) return load_mono_resampled(as_string(x), target_sr);
     if (is_list(x) && entry_has_key(x, "path")) {
@@ -384,7 +364,6 @@ static std::vector<ExprPtr> filter_exact(const std::vector<ExprPtr>& xs,
     }
     return out;
 }
-
 
 static ExprPtr choose_random(const std::vector<ExprPtr>& xs) {
     if (xs.empty()) return make_list({});
@@ -469,7 +448,7 @@ static Proc fn_readdb() {
 
 static Proc fn_db_stats() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 1) throw std::runtime_error("db-stats expects: db");
+        if (args.size() != 1) throw std::runtime_error("catalog-stats expects: catalog");
         const auto xs = db_entries(args[0]);
         Expr::List out;
         out.push_back(kv("entries", make_scalar((double)xs.size())));
@@ -479,7 +458,7 @@ static Proc fn_db_stats() {
 
 static Proc fn_db_instruments() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 1) throw std::runtime_error("db-instruments expects: db");
+        if (args.size() != 1) throw std::runtime_error("catalog-instruments expects: catalog");
         const auto xs = db_entries(args[0]);
         std::vector<std::string> names;
         for (const auto& e : xs) {
@@ -497,7 +476,7 @@ static Proc fn_db_instruments() {
 static Proc fn_db_pitches() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 2 || args.size() > 4 || !is_string(args[1]))
-            throw std::runtime_error("db-pitches expects: db instrument [articulation] [dynamic]");
+            throw std::runtime_error("catalog-pitches expects: catalog instrument [articulation] [dynamic]");
         auto xs = db_entries(args[0]);
         xs = filter_exact(xs, "instrument", as_string(args[1]));
         if (args.size() >= 3 && is_string(args[2])) xs = filter_exact(xs, "articulation", as_string(args[2]));
@@ -522,7 +501,7 @@ static Proc fn_db_pitches() {
 static Proc fn_db_filter() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 3 || !is_string(args[1]))
-            throw std::runtime_error("db-filter expects: db key value");
+            throw std::runtime_error("catalog-filter expects: catalog key value");
         const auto xs = db_entries(args[0]);
         const std::string key = as_string(args[1]);
         const std::string val = to_string_value(args[2]);
@@ -540,7 +519,7 @@ static Proc fn_db_filter() {
 static Proc fn_db_pick() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 5)
-            throw std::runtime_error("db-pick expects: db instrument articulation pitch dynamic");
+            throw std::runtime_error("catalog-pick expects: catalog instrument articulation pitch dynamic");
         auto xs = db_entries(args[0]);
         xs = filter_exact(xs, "instrument", to_string_value(args[1]));
         xs = filter_exact(xs, "articulation", to_string_value(args[2]));
@@ -554,7 +533,7 @@ static Proc fn_db_pick() {
 static Proc fn_db_rand() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 1 || args.size() > 4)
-            throw std::runtime_error("db-rand expects: db [instrument] [articulation] [dynamic]");
+            throw std::runtime_error("catalog-rand expects: catalog [instrument] [articulation] [dynamic]");
         auto xs = db_entries(args[0]);
         if (args.size() >= 2) xs = filter_exact(xs, "instrument", to_string_value(args[1]));
         if (args.size() >= 3) xs = filter_exact(xs, "articulation", to_string_value(args[2]));
@@ -566,7 +545,7 @@ static Proc fn_db_rand() {
 static Proc fn_db_nearest() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 4 || args.size() > 5)
-            throw std::runtime_error("db-nearest expects: db instrument midi dynamic [articulation]");
+            throw std::runtime_error("catalog-nearest expects: catalog instrument midi dynamic [articulation]");
         auto xs = db_entries(args[0]);
         xs = filter_exact(xs, "instrument", to_string_value(args[1]));
         xs = filter_exact(xs, "dynamic", to_string_value(args[3]));
@@ -595,7 +574,7 @@ static Proc fn_db_nearest() {
 static Proc fn_db_load() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.empty() || args.size() > 2)
-            throw std::runtime_error("db-load expects: entry-or-path [target_sr]");
+            throw std::runtime_error("catalog-load expects: entry-or-path [target_sr]");
         int target_sr = (args.size() == 2) ? (int)std::lround(as_scalar(args[1])) : 0;
         return make_vec(extract_db_signal(args[0], target_sr));
     };
@@ -635,7 +614,7 @@ static Proc fn_trim_sample() {
 
 static Proc fn_fadeout_sample() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 2) throw std::runtime_error("sample-fade expects: sig n");
+        if (args.size() != 2) throw std::runtime_error("sample-fadeout expects: sig n");
         Vector x = as_vec(args[0]);
         int n = std::max(0, (int)std::lround(as_scalar(args[1])));
         if (n == 0 || x.size() == 0) return make_vec(x);
@@ -672,7 +651,6 @@ static Proc fn_pick() {
 // primitives: sequencing
 // -----------------------------------------------------------------------------
 
-
 static Proc fn_sample_pat() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 5)
@@ -690,7 +668,7 @@ static Proc fn_sample_pat() {
         std::vector<std::pair<int, Vector>> events;
         for (std::size_t i = 0; i < pattern.size(); ++i) {
             if (pattern[i] == 0.0) continue;
-            Vector s = fit_sample_to_length(sig, (std::size_t)step_len);
+            Vector s = sig;
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -699,8 +677,6 @@ static Proc fn_sample_pat() {
         return make_vec(mix_overlay(events));
     };
 }
-
-
 
 static Proc fn_sample_seq() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
@@ -728,10 +704,7 @@ static Proc fn_sample_seq() {
             }
             while (which < 0) which += (int)bank.size();
             which %= (int)bank.size();
-
             Vector s = extract_db_signal(bank[(std::size_t)which], (int)std::lround(sr));
-            s = fit_sample_to_length(s, (std::size_t)step_len);
-
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -742,11 +715,10 @@ static Proc fn_sample_seq() {
     };
 }
 
-
 static Proc fn_sol_note() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 5 && args.size() != 6)
-            throw std::runtime_error("sol-note expects: db instrument articulation midi dynamic [target_sr]");
+            throw std::runtime_error("inst-note expects: catalog instrument articulation midi dynamic [target_sr]");
         auto xs = db_entries(args[0]);
         xs = filter_exact(xs, "instrument", to_string_value(args[1]));
         xs = filter_exact(xs, "articulation", to_string_value(args[2]));
@@ -770,11 +742,10 @@ static Proc fn_sol_note() {
     };
 }
 
-
 static Proc fn_sol_pat() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 8)
-            throw std::runtime_error("sol-pat expects: sr bpm beats pattern db instrument articulation dynamic");
+            throw std::runtime_error("inst-pat expects: sr bpm beats pattern catalog instrument articulation dynamic");
         const double sr = as_scalar(args[0]);
         const double bpm = as_scalar(args[1]);
         const double beats = as_scalar(args[2]);
@@ -794,7 +765,6 @@ static Proc fn_sol_pat() {
             if (pattern[i] == 0.0) continue;
             ExprPtr e = choose_random(xs);
             Vector s = extract_db_signal(e, (int)std::lround(sr));
-            s = fit_sample_to_length(s, (std::size_t)step_len);
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -804,16 +774,14 @@ static Proc fn_sol_pat() {
     };
 }
 
-
 static Proc fn_sol_randpat() {
     return fn_sol_pat();
 }
 
-
 static Proc fn_sol_patnotes() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 9)
-            throw std::runtime_error("sol-patnotes expects: sr bpm beats pattern db instrument articulation notes dynamic");
+            throw std::runtime_error("inst-patnotes expects: sr bpm beats pattern catalog instrument articulation notes dynamic");
         const double sr = as_scalar(args[0]);
         const double bpm = as_scalar(args[1]);
         const double beats = as_scalar(args[2]);
@@ -847,7 +815,6 @@ static Proc fn_sol_patnotes() {
             }
 
             Vector s = extract_db_signal(best, (int)std::lround(sr));
-            s = fit_sample_to_length(s, (std::size_t)step_len);
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -859,12 +826,10 @@ static Proc fn_sol_patnotes() {
     };
 }
 
-
-
 static Proc fn_sol_arp() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 10)
-            throw std::runtime_error("sol-arp expects: sr bpm beats db instrument articulation notes dynamic subdiv mode");
+            throw std::runtime_error("inst-arp expects: sr bpm beats catalog instrument articulation notes dynamic subdiv mode");
         const double sr = as_scalar(args[0]);
         const double bpm = as_scalar(args[1]);
         const double beats = as_scalar(args[2]);
@@ -905,15 +870,12 @@ static Proc fn_sol_arp() {
                     best = e;
                 }
             }
-            Vector s = extract_db_signal(best, (int)std::lround(sr));
-            s = fit_sample_to_length(s, (std::size_t)event_step);
-            events.push_back({i * event_step, s});
+            events.push_back({i * event_step, extract_db_signal(best, (int)std::lround(sr))});
         }
 
         return make_vec(mix_overlay(events));
     };
 }
-
 
 
 static std::vector<std::vector<std::string>> parse_orchestra(const ExprPtr& orchestra) {
@@ -1079,6 +1041,22 @@ static ExprPtr find_best_sample(const std::vector<ExprPtr>& db,
     return best;
 }
 
+static Vector fadeout_to_length(const Vector& x, std::size_t new_len) {
+    if (new_len >= x.size()) return x;
+    if (new_len == 0) return Vector(0.0, 0);
+
+    Vector y(new_len);
+    for (std::size_t i = 0; i < new_len; ++i) y[i] = x[i];
+
+    std::size_t fade = std::min<std::size_t>(std::max<std::size_t>(32, new_len / 8), new_len);
+    std::size_t start = new_len - fade;
+    for (std::size_t i = 0; i < fade; ++i) {
+        double g = 1.0 - (double)i / (double)std::max<std::size_t>(1, fade - 1);
+        y[start + i] *= g;
+    }
+    return y;
+}
+
 static ExprPtr make_event(double t,
                           double requested_len,
                           int midi,
@@ -1199,7 +1177,7 @@ static Proc fn_orchgran() {
                     Vector sig = it->second;
                     std::size_t requested_samps =
                         (std::size_t)std::max<double>(0.0, std::llround(requested_len * sr));
-                    if (requested_samps < sig.size()) sig = fit_sample_to_length(sig, requested_samps);
+                    if (requested_samps < sig.size()) sig = fadeout_to_length(sig, requested_samps);
 
                     local.push_back({(int)std::llround(t * sr), sig});
                 }
@@ -1234,7 +1212,7 @@ static Proc fn_orchgran() {
 static Proc fn_orchgran_signal() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1 || !is_list(args[0]))
-            throw std::runtime_error("orchgran-signal expects: orchgran-result");
+            throw std::runtime_error("inst-gran-signal expects: inst-gran-result");
         const auto& xs = std::get<Expr::List>(args[0]->v);
         if (xs.size() != 2) throw std::runtime_error("orchgran-signal: malformed result");
         return xs[0];
@@ -1244,7 +1222,7 @@ static Proc fn_orchgran_signal() {
 static Proc fn_orchgran_events() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1 || !is_list(args[0]))
-            throw std::runtime_error("orchgran-events expects: orchgran-result");
+            throw std::runtime_error("inst-gran-events expects: inst-gran-result");
         const auto& xs = std::get<Expr::List>(args[0]->v);
         if (xs.size() != 2) throw std::runtime_error("orchgran-events: malformed result");
         return xs[1];
@@ -1254,7 +1232,7 @@ static Proc fn_orchgran_events() {
 static Proc fn_orchgran_saveevents() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2 || !is_string(args[1]))
-            throw std::runtime_error("orchgran-saveevents expects: events path");
+            throw std::runtime_error("inst-gran-saveevents expects: events path");
         std::ofstream out(as_string(args[1]));
         if (!out) throw std::runtime_error("orchgran-saveevents: cannot open output file");
         out << repr(args[0]);
@@ -1270,32 +1248,31 @@ static void add_samplesynth(std::shared_ptr<Env> env) {
     env->set("loaddb",          make_proc(fn_loaddb()));
     env->set("savedb",          make_proc(fn_savedb()));
     env->set("readdb",          make_proc(fn_readdb()));
-    env->set("db-stats",        make_proc(fn_db_stats()));
-    env->set("db-instruments",  make_proc(fn_db_instruments()));
-    env->set("db-pitches",      make_proc(fn_db_pitches()));
-    env->set("db-filter",       make_proc(fn_db_filter()));
-    env->set("db-pick",         make_proc(fn_db_pick()));
-    env->set("db-rand",         make_proc(fn_db_rand()));
-    env->set("db-nearest",      make_proc(fn_db_nearest()));
-    env->set("db-load",         make_proc(fn_db_load()));
+    env->set("catalog-stats",        make_proc(fn_db_stats()));
+    env->set("catalog-instruments",  make_proc(fn_db_instruments()));
+    env->set("catalog-pitches",      make_proc(fn_db_pitches()));
+    env->set("catalog-filter",       make_proc(fn_db_filter()));
+    env->set("catalog-pick",         make_proc(fn_db_pick()));
+    env->set("catalog-rand",         make_proc(fn_db_rand()));
+    env->set("catalog-nearest",      make_proc(fn_db_nearest()));
+    env->set("catalog-load",         make_proc(fn_db_load()));
     env->set("sample",          make_proc(fn_sample()));
     env->set("sample-reverse",  make_proc(fn_reverse_sample()));
     env->set("sample-trim",     make_proc(fn_trim_sample()));
-    env->set("sample-fade",     make_proc(fn_fadeout_sample()));
     env->set("sample-fadeout",  make_proc(fn_fadeout_sample()));
     env->set("bank",            make_proc(fn_bank()));
     env->set("pick",            make_proc(fn_pick()));
     env->set("sample-pat",      make_proc(fn_sample_pat()));
     env->set("sample-seq",      make_proc(fn_sample_seq()));
-    env->set("sol-note",        make_proc(fn_sol_note()));
-    env->set("sol-pat",         make_proc(fn_sol_pat()));
-    env->set("sol-randpat",     make_proc(fn_sol_randpat()));
-    env->set("sol-patnotes",    make_proc(fn_sol_patnotes()));
-    env->set("sol-arp",         make_proc(fn_sol_arp()));
-    env->set("orchgran",            make_proc(fn_orchgran()));
-    env->set("orchgran-signal",     make_proc(fn_orchgran_signal()));
-    env->set("orchgran-events",     make_proc(fn_orchgran_events()));
-    env->set("orchgran-saveevents", make_proc(fn_orchgran_saveevents()));    
+    env->set("inst-note",        make_proc(fn_sol_note()));
+    env->set("inst-pat",         make_proc(fn_sol_pat()));
+    env->set("inst-randpat",     make_proc(fn_sol_randpat()));
+    env->set("inst-patnotes",    make_proc(fn_sol_patnotes()));
+    env->set("inst-arp",         make_proc(fn_sol_arp()));
+    env->set("inst-gran",            make_proc(fn_orchgran()));
+    env->set("inst-gran-signal",     make_proc(fn_orchgran_signal()));
+    env->set("inst-gran-events",     make_proc(fn_orchgran_events()));
+    env->set("inst-gran-saveevents", make_proc(fn_orchgran_saveevents()));    
 }
 
 // eof

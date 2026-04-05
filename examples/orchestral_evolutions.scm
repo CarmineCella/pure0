@@ -154,13 +154,13 @@
 (def orch_brass_low
   (norm
     (bmix sr bpm
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   0 0 0 0   0.8 0 0 0   0 0 0 0)
            SOL "BTb" "ord" (vec 35 38 42 43) "mf")
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   0.7 0 0 0   1 0 0 0   0.7 0 0 0)
            SOL "Tbn" "ord" (vec 47 50 54 55) "mf")
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 0 0 1 0   0 0 0 0   0 0 1 0   0 0 0 0)
            SOL "Hn" "ord" (vec 55 57 59 62) "mf"))
     0.84))
@@ -168,16 +168,16 @@
 (def orch_strings_pad
   (norm
     (bmix sr bpm
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   0.8 0 0 0   1 0 0 0   0.8 0 0 0)
            SOL "Cb" "ord" (vec 35 38 42 47) "mf")
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   1 0 0 0   0.8 0 0 0   1 0 0 0)
            SOL "Vc" "ord" (vec 47 50 54 57) "mf")
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0)
            SOL "Va" "ord" (vec 54 57 59 62) "mf")
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 0 0 1 0   0 0 0 0   0 0 1 0   0 0 0 0)
            SOL "Vn" "ord" (vec 62 66 69 74) "mf"))
     0.86))
@@ -185,12 +185,12 @@
 (def orch_winds_motifs
   (norm
     (bmix sr bpm
-      0 (sol-arp sr bpm 8 SOL "Ob"   "ord" (vec 74 78 81 86) "mf" 4 2)
-      0 (sol-arp sr bpm 8 SOL "Fl"   "ord" (vec 78 81 86 90) "mf" 6 0)
-      0 (sol-patnotes sr bpm 8
+      0 (inst-arp sr bpm 8 SOL "Ob"   "ord" (vec 74 78 81 86) "mf" 4 2)
+      0 (inst-arp sr bpm 8 SOL "Fl"   "ord" (vec 78 81 86 90) "mf" 6 0)
+      0 (inst-patnotes sr bpm 8
            (vec 0 0 1 0   0 0 1 0   0 0 1 0   0 0 1 0)
            SOL "ClBb" "ord" (vec 69 74 78 81) "mf")
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   0 0 0 0   0.7 0 0 0   0 0 0 0)
            SOL "Bn" "ord" (vec 47 50 54 57) "mf"))
     0.84))
@@ -198,13 +198,13 @@
 (def orch_brass_high
   (norm
     (bmix sr bpm
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   0.8 0 0 0   1 0 0 0   0.8 0 0 0)
            SOL "Hn" "ord" (vec 59 62 66 69) "f")
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   1 0 0 0   1 0 0 0   0.7 0 0 0)
            SOL "TpC" "ord" (vec 66 69 74 78) "f")
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 0 0 1 0   0 0 1 0   0 0 1 0   0 0 1 0)
            SOL "Tbn" "ord" (vec 54 57 62 66) "f"))
     0.88))
@@ -214,7 +214,7 @@
     (bmix sr bpm
       0 orch_brass_low
       0 orch_strings_pad
-      0 (sol-patnotes sr bpm 8
+      0 (inst-patnotes sr bpm 8
            (vec 1 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0)
            SOL "Bn" "ord" (vec 42 45 47 50) "mf"))
     0.90))
@@ -536,23 +536,23 @@
 (def left_side
   (norm
     (bmix sr bpm
-      96  (sol-arp sr bpm 16 SOL "Ob" "ord" (vec 74 78 81 86) "mf" 6 2)
-      352 (sol-patnotes sr bpm 16
+      96  (inst-arp sr bpm 16 SOL "Ob" "ord" (vec 74 78 81 86) "mf" 6 2)
+      352 (inst-patnotes sr bpm 16
              (vec 0 0 1 0   0 0 0 0   0 0 1 0   0 0 0 0)
              SOL "Fl" "ord" (vec 78 81 86 90) "mf")
       736 (arp sr bpm 16 (vec 81 78 74 69) 10 0.08 0.025 2 1)
-      1000 (sol-arp sr bpm 16 SOL "Vn" "ord" (vec 74 78 81 86) "f" 8 2))
+      1000 (inst-arp sr bpm 16 SOL "Vn" "ord" (vec 74 78 81 86) "f" 8 2))
     0.28))
 
 (def right_side
   (norm
     (bmix sr bpm
-      160 (sol-arp sr bpm 16 SOL "ClBb" "ord" (vec 69 74 78 81) "mf" 6 0)
-      448 (sol-patnotes sr bpm 16
+      160 (inst-arp sr bpm 16 SOL "ClBb" "ord" (vec 69 74 78 81) "mf" 6 0)
+      448 (inst-patnotes sr bpm 16
              (vec 0 0 0 0   0 0 1 0   0 0 0 0   0 0 1 0)
              SOL "Ob" "ord" (vec 74 78 81 86) "mf")
       816 (arp sr bpm 16 (vec 79 74 71 67) 12 0.07 0.024 1 2)
-      1080 (sol-arp sr bpm 16 SOL "TpC" "ord" (vec 66 69 74 78) "f" 6 2))
+      1080 (inst-arp sr bpm 16 SOL "TpC" "ord" (vec 66 69 74 78) "f" 6 2))
     0.28))
 
 (def left
