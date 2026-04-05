@@ -1,0 +1,5 @@
+
+0.3 3 env<>
+0.2 3 { 220 220 ph * + } osc
+vmul
+"glide.wav" render

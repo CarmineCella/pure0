@@ -1,0 +1,34 @@
+message(STATUS "Starting pure0 uninstall...")
+
+set(PREFIX "@CMAKE_INSTALL_PREFIX@")
+set(IS_APPLE "@APPLE@")
+
+# ------------------------------------------------------------------------------
+# Remove ~/.pure0
+# ------------------------------------------------------------------------------
+
+if(DEFINED ENV{HOME})
+    set(PURE0_HOME "$ENV{HOME}/.pure0")
+    if(EXISTS "${PURE0_HOME}")
+        message(STATUS "Removing directory: ${PURE0_HOME}")
+        file(REMOVE_RECURSE "${PURE0_HOME}")
+    else()
+        message(STATUS "~/.pure0 directory not present")
+    endif()
+
+endif()
+
+# ------------------------------------------------------------------------------
+# Remove binary from install prefix
+# ------------------------------------------------------------------------------
+
+set(PURE0_BIN "${PREFIX}/bin/pure0")
+if(EXISTS "${PURE0_BIN}")
+    message(STATUS "Removing binary: ${PURE0_BIN}")
+    file(REMOVE "${PURE0_BIN}")
+else()
+    message(STATUS "binary not found: ${PURE0_BIN}")
+endif()
+
+
+message(STATUS "pure0 uninstall completed.")

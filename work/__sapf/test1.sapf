@@ -1,0 +1,14 @@
+: sr 44100 set-sr ;
+
+sr
+
+0.3 2 env<>         
+0.2 2 { 440 } osc   
+vmul
+
+0.15 2 env<>        
+0.15 2 { 660 } osc
+vmul
+
+vadd
+render

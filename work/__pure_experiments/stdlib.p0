@@ -1,0 +1,35 @@
+: twopi 2 pi * ;
+
+: osc
+    twopi * sin
+;
+
+: tri 
+    ph 2 * 1 - abs 1 swap - 
+;
+
+: env<
+    ph *
+;
+
+: env>
+    1 ph - *
+;
+
+: env<>
+    ph 2 * 1 - abs
+    1 swap -
+    *
+;
+
+: sq
+    dup *
+;
+
+: cube
+    dup dup * *
+;
+
+: inv
+    1 swap /
+;

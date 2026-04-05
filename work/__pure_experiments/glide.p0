@@ -1,0 +1,9 @@
+: sr 44100 ;
+
+0.3 2 {
+    ph 3 pow 440 *
+    t *
+    osc
+    amp *
+    env<>
+} render

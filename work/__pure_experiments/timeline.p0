@@ -1,0 +1,47 @@
+: e_left_110
+    0.3 15 {
+        110 t * osc
+        amp *
+        tri *
+    }
+;
+
+: e_right_115
+    0.3 15 {
+        115 t * osc
+        amp *
+        tri *
+    }
+;
+
+: e_left_180_at_5
+    0.3 20 {
+        180 t * osc
+        amp *
+        tri *
+    } 5 delay
+;
+
+: e_right_180_at_5
+    0.3 20 {
+        180 t * osc
+        amp *
+        tri *
+    } 5 delay
+;
+
+: left_channel
+    e_left_110
+    e_left_180_at_5
+    +
+;
+
+: right_channel
+    e_right_115
+    e_right_180_at_5
+    +
+;
+
+left_channel
+right_channel
+render

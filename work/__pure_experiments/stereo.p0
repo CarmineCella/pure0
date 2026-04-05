@@ -1,0 +1,15 @@
+: sr 44100 ;
+
+0.2 2 {
+    440 t * osc
+    amp *
+    env<>
+}
+
+0.2 2 {
+    660 t * osc
+    amp *
+    env<>
+}
+
+render

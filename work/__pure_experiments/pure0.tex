@@ -1,0 +1,293 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\lstset{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  keepspaces=true,
+  frame=single,
+  breaklines=true,
+  showstringspaces=false
+}
+\title{pure0: A Tiny Concatenative Language for Sound Synthesis}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+
+\section*{Overview}
+\texttt{pure0} is a very small Forth-like language for sound synthesis. It is stack-based and concatenative: words consume values from the stack and push results back. The central idea is that numbers, strings, and signals can all live on the stack. A block of the form \texttt{\{ ... \}} builds a signal by evaluating its body sample by sample.
+
+\section*{Core ideas}
+\begin{itemize}
+\item Numbers are plain scalar values.
+\item Strings are written in double quotes.
+\item Signals are vectors of samples, possibly multichannel.
+\item Words operate by popping from the stack and pushing results.
+\item \texttt{: name ... ;} defines a new word.
+\end{itemize}
+
+For example:
+\begin{lstlisting}
+: sr 48000 ;
+: tone440 0.2 2 { 440 } osc ;
+\end{lstlisting}
+
+Now \texttt{sr} pushes \texttt{48000} and \texttt{tone440} synthesizes a 2-second sine wave at 440 Hz.
+
+\section*{What \texttt{\{ ... \}} means}
+A block is a signal generator. The two values before the block are interpreted as:
+\begin{itemize}
+\item amplitude context \texttt{amp}
+\item duration in seconds
+\end{itemize}
+
+So:
+\begin{lstlisting}
+0.2 2 { 440 }
+\end{lstlisting}
+means: generate a 2-second signal by evaluating the body once per sample, with local variables:
+\begin{itemize}
+\item \texttt{amp}: the amplitude value passed before the block
+\item \texttt{t}: current time in seconds
+\item \texttt{ph}: normalized phase from 0 to 1 across the block
+\end{itemize}
+
+In this case the body always returns \texttt{440}, so the result is a constant control signal equal to 440. This is useful as a frequency signal for \texttt{osc}.
+
+\section*{Built-in variables}
+By default:
+\begin{lstlisting}
+sr   \textit{sample rate, default 44100}
+ch   \textit{number of channels, default 1}
+\end{lstlisting}
+
+You can inspect variables and words with:
+\begin{lstlisting}
+.v
+\end{lstlisting}
+
+You can define a numeric variable dynamically with:
+\begin{lstlisting}
+"sr" 48000 def
+\end{lstlisting}
+
+Or more idiomatically define a word:
+\begin{lstlisting}
+: sr 48000 ;
+\end{lstlisting}
+
+In the current interpreter, the DSP engine reads the numeric variable table for \texttt{sr} and \texttt{ch}. So if you want to change the actual rendering sample rate or channel count, use \texttt{def}:
+\begin{lstlisting}
+"sr" 48000 def
+"ch" 2 def
+\end{lstlisting}
+
+\section*{Stack tools}
+\begin{lstlisting}
+.s    \textit{print full stack}
+.     \textit{print and pop top item}
+dup   \textit{duplicate top}
+swap  \textit{swap top two}
+drop  \textit{drop top item}
+\end{lstlisting}
+
+Example:
+\begin{lstlisting}
+1 2 3 .s
+2 3 + .
+\end{lstlisting}
+
+\section*{Arithmetic}
+The words \texttt{+ - * /} work on numbers, and also pointwise on signals. Strings can be concatenated with \texttt{+}.
+
+\begin{lstlisting}
+2 3 + .
+"out" ".wav" + .
+\end{lstlisting}
+
+\section*{Oscillators and envelopes}
+\subsection*{Oscillator}
+\texttt{osc} now expects a frequency signal and returns a sine wave. It does not apply amplitude internally.
+
+A minimal oscillator:
+\begin{lstlisting}
+0.2 2 { 440 } osc
+\end{lstlisting}
+
+This creates a 2-second sine wave at 440 Hz.
+
+\subsection*{Envelopes}
+\begin{lstlisting}
+env-    \textit{constant envelope}
+env<    \textit{fade in}
+env>    \textit{fade out}
+env<>   \textit{fade in + fade out}
+adsr    \textit{ADSR envelope}
+bpf     \textit{breakpoint envelope}
+\end{lstlisting}
+
+Examples:
+\begin{lstlisting}
+0.3 2 env-
+0.3 2 env<>
+0.3 2 0.01 0.2 0.6 0.3 adsr
+\end{lstlisting}
+
+To apply an envelope to a signal, use \texttt{vmul}:
+\begin{lstlisting}
+0.3 2 env<>
+0.2 2 { 440 } osc
+vmul
+\end{lstlisting}
+
+\section*{Breakpoint functions}
+\texttt{bpf} takes pairs \texttt{x y}, then the number of points, then a duration:
+\begin{lstlisting}
+0 0  0.1 1  0.7 0.4  1 0  4 2 bpf
+\end{lstlisting}
+This means 4 points over 2 seconds. \texttt{x} should normally go from 0 to 1.
+
+It is useful as an envelope:
+\begin{lstlisting}
+0 0  0.1 1  0.7 0.4  1 0  4 2 bpf
+0.2 2 { 440 } osc
+vmul
+\end{lstlisting}
+
+\section*{Signal combinators}
+\begin{lstlisting}
+vmul    \textit{pointwise multiply}
+vadd    \textit{pointwise add}
+mix     \textit{sum N signals}
+concat  \textit{append signals in time}
+delay   \textit{prepend silence}
+stereo  \textit{combine two mono signals into stereo}
+\end{lstlisting}
+
+Examples:
+\subsection*{Mix two tones}
+\begin{lstlisting}
+0.2 2 { 440 } osc
+0.2 2 { 660 } osc
+2 mix
+\end{lstlisting}
+
+\subsection*{Concatenate two tones}
+\begin{lstlisting}
+0.2 1 { 440 } osc
+0.2 1 { 660 } osc
+concat
+\end{lstlisting}
+
+\subsection*{Delay a tone}
+\begin{lstlisting}
+0.2 1 { 440 } osc
+0.5 delay
+\end{lstlisting}
+
+\subsection*{Stereo output}
+\begin{lstlisting}
+"ch" 2 def
+0.2 2 { 440 } osc
+0.2 2 { 660 } osc
+stereo
+\end{lstlisting}
+
+\section*{Strings, file names, and wavread}
+Strings are written in double quotes:
+\begin{lstlisting}
+"out.wav"
+\end{lstlisting}
+
+Read a wav file:
+\begin{lstlisting}
+"input.wav" wavread
+\end{lstlisting}
+
+Render with an explicit output name:
+\begin{lstlisting}
+0.3 2 env<>
+0.2 2 { 440 } osc
+vmul
+"note.wav" render
+\end{lstlisting}
+
+If you omit the name, \texttt{render} writes to \texttt{out.wav}.
+
+\section*{Typical examples}
+\subsection*{A simple note}
+\begin{lstlisting}
+0.3 2 env<>
+0.2 2 { 440 } osc
+vmul
+"note.wav" render
+\end{lstlisting}
+
+\subsection*{A two-note phrase}
+\begin{lstlisting}
+0.3 1 env<>
+0.2 1 { 440 } osc
+vmul
+
+0.3 1 env<>
+0.2 1 { 660 } osc
+vmul
+
+concat
+"phrase.wav" render
+\end{lstlisting}
+
+\subsection*{A gliding tone}
+\begin{lstlisting}
+0.3 3 env<>
+0.2 3 { 220 220 ph * + } osc
+vmul
+"glide.wav" render
+\end{lstlisting}
+
+\subsection*{An ADSR note}
+\begin{lstlisting}
+0.3 2 0.01 0.2 0.6 0.3 adsr
+0.2 2 { 330 } osc
+vmul
+"adsr.wav" render
+\end{lstlisting}
+
+\subsection*{Stereo example}
+\begin{lstlisting}
+"ch" 2 def
+0.25 2 env<>
+0.2 2 { 440 } osc
+vmul
+
+0.25 2 env<>
+0.2 2 { 660 } osc
+vmul
+
+stereo
+"stereo.wav" render
+\end{lstlisting}
+
+\section*{REPL and files}
+If you launch \texttt{pure0} with no files, it starts a REPL using \texttt{getline}. This is convenient for a concatenative language.
+
+If you pass a file, it executes the file contents.
+
+\section*{Remarks}
+This is a toy language. The current interpreter is intentionally small and conservative. The core aesthetic is:
+\begin{itemize}
+\item keep syntax minimal
+\item keep the stack visible
+\item treat blocks as pure signal builders
+\item compose by concatenation of words
+\end{itemize}
+
+A natural next step would be to add proper scope for local definitions, better multichannel signal constructors, and richer file I/O.
+
+\end{document}

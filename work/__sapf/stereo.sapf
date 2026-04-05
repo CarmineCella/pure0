@@ -1,0 +1,10 @@
+
+"ch" 2 def
+0.25 2 env<>
+0.2 2 { 440 } osc
+vmul
+0.25 2 env<>
+0.2 2 { 660 } osc
+vmul
+stereo
+"stereo.wav" render

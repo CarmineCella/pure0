@@ -1,0 +1,9 @@
+
+: sr 44100 set-sr ;
+
+sr
+
+0.35 4 env<>
+0.25 4 { 220 440 ph * + } osc
+vmul
+render

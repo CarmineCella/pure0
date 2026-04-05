@@ -1,0 +1,4 @@
+0.2 2 { amp 2 pi * 440 * t * sin * }
+0.2 2 { amp 2 pi * 660 * t * sin * } 1 delay
++
+render
