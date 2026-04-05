@@ -69,6 +69,10 @@ static Vector music_line(std::size_t n, double a, double b) {
     return r;
 }
 
+static double music_mtof_scalar(double midi) {
+    return 440.0 * std::pow(2.0, (midi - 69.0) / 12.0);
+}
+
 static Vector music_decay_env(std::size_t n, double tau, double sr) {
     if (n == 0) return Vector(0.0, 0);
     tau = std::max(tau, 1.0 / std::max(1.0, sr));
@@ -135,9 +139,8 @@ static Vector music_seq_values(std::size_t n, const std::vector<double>& vals) {
 static Vector music_hold_values(const std::vector<double>& vals, std::size_t seglen) {
     if (seglen == 0) throw std::runtime_error("seglen must be > 0");
     Vector r(vals.size() * seglen);
-    for (std::size_t i = 0; i < vals.size(); ++i) {
+    for (std::size_t i = 0; i < vals.size(); ++i)
         for (std::size_t j = 0; j < seglen; ++j) r[i * seglen + j] = vals[i];
-    }
     return r;
 }
 
@@ -159,10 +162,9 @@ static Vector music_trigger_train(int total_samples, int step_samples, const std
     if (step_samples <= 0) throw std::runtime_error("step duration must be > 0 samples");
     Vector out(0.0, (std::size_t)total_samples);
     if (pattern.empty()) return out;
-    int steps = (int)pattern.size();
-    for (int i = 0; i < steps; ++i) {
-        if (!pattern[(std::size_t)i]) continue;
-        int pos = i * step_samples;
+    for (std::size_t i = 0; i < pattern.size(); ++i) {
+        if (!pattern[i]) continue;
+        int pos = (int)i * step_samples;
         if (pos >= 0 && pos < total_samples) out[(std::size_t)pos] += amp;
     }
     return out;
@@ -192,6 +194,11 @@ static Vector music_tri_table() {
     return table;
 }
 
+static Vector music_square_table() {
+    static Vector table = music_gen_table({1.0, 0.0, 1.0 / 3.0, 0.0, 1.0 / 5.0, 0.0, 1.0 / 7.0, 0.0, 1.0 / 9.0});
+    return table;
+}
+
 static const Vector& music_shape_table_ref(int shape) {
     if (shape == 1) {
         static Vector saw = music_saw_table();
@@ -201,12 +208,37 @@ static const Vector& music_shape_table_ref(int shape) {
         static Vector tri = music_tri_table();
         return tri;
     }
+    if (shape == 3) {
+        static Vector sq = music_square_table();
+        return sq;
+    }
     static Vector sine = music_sine_table();
     return sine;
 }
 
 static Vector music_voice_from_freqs(double sr, const Vector& freqs, const Vector& table) {
     return as_vec(fn_osc()({make_scalar(sr), make_vec(freqs), make_vec(table)}, nullptr));
+}
+
+static Vector music_filter(const Vector& sig, const std::string& type, double sr, double f0,
+                           double q = 0.707, double gain_db = 0.0) {
+    f0 = music_clamp(f0, 10.0, sr * 0.49);
+    ExprPtr coeffs = fn_iirdesign()({make_string(type), make_scalar(sr), make_scalar(f0), make_scalar(q), make_scalar(gain_db)}, nullptr);
+    const auto& xs = std::get<Expr::List>(coeffs->v);
+    Vector b = as_vec(xs[0]);
+    Vector a = as_vec(xs[1]);
+    return as_vec(fn_iir()({make_vec(sig), make_vec(b), make_vec(a)}, nullptr));
+}
+
+static Vector music_mix_zero(const std::vector<Vector>& xs) {
+    if (xs.empty()) return Vector(0.0, 0);
+    std::vector<ExprPtr> mix_args;
+    mix_args.reserve(xs.size() * 2);
+    for (const auto& x : xs) {
+        mix_args.push_back(make_scalar(0.0));
+        mix_args.push_back(make_vec(x));
+    }
+    return as_vec(fn_mix()(mix_args, nullptr));
 }
 
 static Vector music_tone(double sr, double hz, double dur, double amp, const Vector& table) {
@@ -233,9 +265,7 @@ static Vector music_taper(const Vector& sig, double sr, double attack_s, double 
     std::size_t r = (std::size_t)std::max(0, music_iround(sr * release_s));
     a = std::min<std::size_t>(a, n);
     r = std::min<std::size_t>(r, n);
-    if (a > 1) {
-        for (std::size_t i = 0; i < a; ++i) out[i] *= (double)i / (double)(a - 1);
-    }
+    if (a > 1) for (std::size_t i = 0; i < a; ++i) out[i] *= (double)i / (double)(a - 1);
     if (r > 1) {
         for (std::size_t i = 0; i < r; ++i) {
             std::size_t j = n - r + i;
@@ -264,12 +294,7 @@ static Vector music_bass_voice(double sr, double hz, double dur, double amp, dou
     for (std::size_t i = 0; i < n; ++i) wob[i] = 0.35 + 0.65 * ((lfo[i] + 1.0) * 0.5);
     Vector sig = main * 0.68 + sub * 0.32;
     sig = sig * wob;
-
-    ExprPtr coeffs = fn_iirdesign()({make_string("lowpass"), make_scalar(sr), make_scalar(std::max(80.0, hz * 3.5)), make_scalar(0.707), make_scalar(0.0)}, nullptr);
-    const auto& xs = std::get<Expr::List>(coeffs->v);
-    Vector b = as_vec(xs[0]);
-    Vector a = as_vec(xs[1]);
-    sig = as_vec(fn_iir()({make_vec(sig), make_vec(b), make_vec(a)}, nullptr));
+    sig = music_filter(sig, "lowpass", sr, std::max(80.0, hz * 3.5), 0.707, 0.0);
     sig = music_taper(sig, sr, 0.003, std::min(0.08, dur * 0.4));
     return sig * amp;
 }
@@ -281,6 +306,28 @@ static Vector music_kick(double sr, double dur, double f0, double f1, double tau
     Vector click = music_noise(std::min<std::size_t>(n, (std::size_t)music_iround(0.004 * sr)), 0.15);
     Vector sig = music_apply_env(body, env);
     for (std::size_t i = 0; i < click.size(); ++i) sig[i] += click[i];
+    return music_normalize(sig * amp, 1.0);
+}
+
+static Vector music_kick_click(double sr, double dur, double f0, double f1, double tau, double click_amt, double amp) {
+    std::size_t n = (std::size_t)std::max(1, music_iround(sr * dur));
+    Vector body = music_sweep_tone(sr, f0, f1, dur, 1.0, music_sine_table());
+    body = music_apply_env(body, music_decay_env(n, tau, sr));
+    std::size_t cn = std::min<std::size_t>(n, (std::size_t)music_iround(0.006 * sr));
+    Vector click = music_noise(cn, 1.0);
+    click = music_filter(click, "highpass", sr, 2500.0, 0.707, 0.0);
+    click = music_apply_env(click, music_decay_env(cn, 0.006, sr));
+    for (std::size_t i = 0; i < cn; ++i) body[i] += click[i] * click_amt;
+    return music_normalize(body * amp, 1.0);
+}
+
+static Vector music_kick_sub(double sr, double dur, double f0, double f1, double tau, double amp) {
+    std::size_t n = (std::size_t)std::max(1, music_iround(sr * dur));
+    Vector main = music_sweep_tone(sr, f0, f1, dur, 1.0, music_sine_table());
+    Vector sub = music_sweep_tone(sr, f0 * 0.5, std::max(18.0, f1 * 0.5), dur, 1.0, music_sine_table());
+    Vector sig = main * 0.6 + sub * 0.4;
+    sig = music_apply_env(sig, music_decay_env(n, tau, sr));
+    sig = music_filter(sig, "lowpass", sr, std::max(70.0, f0 * 2.2), 0.707, 0.0);
     return music_normalize(sig * amp, 1.0);
 }
 
@@ -298,11 +345,32 @@ static Vector music_snare(double sr, double dur, double tone_hz, double noise_mi
 static Vector music_hat(double sr, double dur, double hp_hz, double tau, double amp) {
     std::size_t n = (std::size_t)std::max(1, music_iround(sr * dur));
     Vector sig = music_noise(n);
-    ExprPtr coeffs = fn_iirdesign()({make_string("highpass"), make_scalar(sr), make_scalar(hp_hz), make_scalar(0.707), make_scalar(0.0)}, nullptr);
-    const auto& xs = std::get<Expr::List>(coeffs->v);
-    Vector b = as_vec(xs[0]);
-    Vector a = as_vec(xs[1]);
-    sig = as_vec(fn_iir()({make_vec(sig), make_vec(b), make_vec(a)}, nullptr));
+    sig = music_filter(sig, "highpass", sr, hp_hz, 0.707, 0.0);
+    sig = music_apply_env(sig, music_decay_env(n, tau, sr));
+    return music_normalize(sig * amp, 1.0);
+}
+
+static Vector music_hat_dark(double sr, double dur, double hp_hz, double tau, double amp) {
+    std::size_t n = (std::size_t)std::max(1, music_iround(sr * dur));
+    Vector sig = music_noise(n);
+    sig = music_filter(sig, "highpass", sr, hp_hz, 0.9, 0.0);
+    sig = music_filter(sig, "peak", sr, std::max(1500.0, hp_hz * 1.2), 1.2, 3.0);
+    sig = music_apply_env(sig, music_decay_env(n, tau, sr));
+    return music_normalize(sig * amp, 1.0);
+}
+
+static Vector music_hat_metal(double sr, double dur, double base_hz, double tau, double amp) {
+    std::size_t n = (std::size_t)std::max(1, music_iround(sr * dur));
+    Vector f1(base_hz, n);
+    Vector f2(base_hz * 1.414, n);
+    Vector f3(base_hz * 1.732, n);
+    Vector f4(base_hz * 2.618, n);
+    Vector o1 = music_voice_from_freqs(sr, f1, music_square_table());
+    Vector o2 = music_voice_from_freqs(sr, f2, music_square_table());
+    Vector o3 = music_voice_from_freqs(sr, f3, music_tri_table());
+    Vector o4 = music_voice_from_freqs(sr, f4, music_square_table());
+    Vector sig = o1 * 0.35 + o2 * 0.25 + o3 * 0.2 + o4 * 0.2 + music_noise(n, 0.12);
+    sig = music_filter(sig, "highpass", sr, std::max(2000.0, base_hz * 0.55), 0.707, 0.0);
     sig = music_apply_env(sig, music_decay_env(n, tau, sr));
     return music_normalize(sig * amp, 1.0);
 }
@@ -313,7 +381,7 @@ static Vector music_drone(double sr, double hz, double dur, double amp, double b
     Vector sig1 = music_voice_from_freqs(sr, base, music_saw_table());
     Vector sig2 = music_voice_from_freqs(sr, base * 0.5, music_sine_table());
     Vector sig3 = music_voice_from_freqs(sr, base * 1.5, music_tri_table());
-    Vector slow = music_voice_from_freqs(sr, Vector(beat_hz, n), music_sine_table());
+    Vector slow = music_voice_from_freqs(sr, Vector(std::max(0.01, beat_hz), n), music_sine_table());
     Vector mod(n);
     for (std::size_t i = 0; i < n; ++i) mod[i] = 0.6 + 0.4 * ((slow[i] + 1.0) * 0.5);
     Vector sig = sig1 * 0.55 + sig2 * 0.25 + sig3 * 0.2;
@@ -322,6 +390,84 @@ static Vector music_drone(double sr, double hz, double dur, double amp, double b
     for (std::size_t i = 0; i < fade.size() && i < n; ++i) sig[i] *= fade[i];
     for (std::size_t i = 0; i < fade.size() && i < n; ++i) sig[n - 1 - i] *= fade[fade.size() - 1 - i];
     return sig * amp;
+}
+
+static Vector music_drone_noise(double sr, double hz, double dur, double amp, double lfo_hz) {
+    std::size_t n = (std::size_t)std::max(1, music_iround(sr * dur));
+    Vector src = music_noise(n, 1.0);
+    Vector r1 = as_vec(fn_reson()({make_vec(src), make_scalar(sr), make_scalar(std::max(30.0, hz)), make_scalar(1.2)}, nullptr));
+    Vector r2 = as_vec(fn_reson()({make_vec(src), make_scalar(sr), make_scalar(std::max(40.0, hz * 1.5)), make_scalar(1.0)}, nullptr));
+    Vector r3 = as_vec(fn_reson()({make_vec(src), make_scalar(sr), make_scalar(std::max(50.0, hz * 2.0)), make_scalar(0.8)}, nullptr));
+    Vector sig = music_mix_zero({r1 * 0.5, r2 * 0.3, r3 * 0.2});
+    sig = music_take(sig, n);
+    Vector lfo = music_voice_from_freqs(sr, Vector(std::max(0.01, lfo_hz), n), music_sine_table());
+    Vector env(n);
+    for (std::size_t i = 0; i < n; ++i) env[i] = 0.45 + 0.55 * ((lfo[i] + 1.0) * 0.5);
+    sig = sig * env;
+    sig = music_filter(sig, "lowpass", sr, std::max(120.0, hz * 3.0), 0.707, 0.0);
+    sig = music_taper(sig, sr, 0.04, 0.08);
+    return music_normalize(sig * amp, 1.0);
+}
+
+static Vector music_drone_reson(double sr, double hz, double dur, double amp, double tau, double lfo_hz) {
+    std::size_t n = (std::size_t)std::max(1, music_iround(sr * dur));
+    Vector exc = music_noise((std::size_t)std::max(8, music_iround(sr * 0.03)), 1.0);
+    Vector r1 = as_vec(fn_reson()({make_vec(exc), make_scalar(sr), make_scalar(std::max(25.0, hz)), make_scalar(std::max(0.2, tau))}, nullptr));
+    Vector r2 = as_vec(fn_reson()({make_vec(exc), make_scalar(sr), make_scalar(std::max(35.0, hz * 1.25)), make_scalar(std::max(0.15, tau * 0.8))}, nullptr));
+    Vector r3 = as_vec(fn_reson()({make_vec(exc), make_scalar(sr), make_scalar(std::max(45.0, hz * 1.5)), make_scalar(std::max(0.12, tau * 0.6))}, nullptr));
+    Vector bed = music_mix_zero({r1 * 0.5, r2 * 0.3, r3 * 0.2});
+    Vector sig = music_repeat_to(bed, n);
+    Vector lfo = music_voice_from_freqs(sr, Vector(std::max(0.01, lfo_hz), n), music_sine_table());
+    for (std::size_t i = 0; i < n; ++i) sig[i] *= 0.6 + 0.4 * ((lfo[i] + 1.0) * 0.5);
+    sig = music_filter(sig, "peak", sr, std::max(100.0, hz * 2.0), 1.1, 4.0);
+    sig = music_taper(sig, sr, 0.03, 0.08);
+    return music_normalize(sig * amp, 1.0);
+}
+
+static Vector music_pad_minor(double sr, double root_midi, double dur, double amp, double lfo_hz) {
+    double m1 = root_midi;
+    double m2 = root_midi + 3.0;
+    double m3 = root_midi + 7.0;
+    double m4 = root_midi + 10.0;
+    double h1 = music_mtof_scalar(m1);
+    double h2 = music_mtof_scalar(m2);
+    double h3 = music_mtof_scalar(m3);
+    double h4 = music_mtof_scalar(m4);
+    Vector v1 = music_note_voice(sr, h1, dur, 1.0, 1);
+    Vector v2 = music_note_voice(sr, h2, dur, 1.0, 2);
+    Vector v3 = music_note_voice(sr, h3, dur, 1.0, 1);
+    Vector v4 = music_note_voice(sr, h4, dur, 1.0, 0);
+    Vector sig = music_mix_zero({v1 * 0.34, v2 * 0.24, v3 * 0.24, v4 * 0.18});
+    std::size_t n = sig.size();
+    Vector lfo = music_voice_from_freqs(sr, Vector(std::max(0.01, lfo_hz), n), music_sine_table());
+    for (std::size_t i = 0; i < n; ++i) sig[i] *= 0.55 + 0.45 * ((lfo[i] + 1.0) * 0.5);
+    sig = music_filter(sig, "lowpass", sr, std::max(500.0, h3 * 3.0), 0.8, 0.0);
+    sig = music_taper(sig, sr, 0.08, 0.18);
+    return music_normalize(sig * amp, 1.0);
+}
+
+static Vector music_stab_minor(double sr, double root_midi, double dur, double amp, int shape) {
+    double m1 = root_midi;
+    double m2 = root_midi + 3.0;
+    double m3 = root_midi + 7.0;
+    Vector v1 = music_note_voice(sr, music_mtof_scalar(m1), dur, 1.0, shape);
+    Vector v2 = music_note_voice(sr, music_mtof_scalar(m2), dur, 1.0, shape);
+    Vector v3 = music_note_voice(sr, music_mtof_scalar(m3), dur, 1.0, shape);
+    Vector sig = music_mix_zero({v1 * 0.4, v2 * 0.3, v3 * 0.3});
+    sig = music_filter(sig, "lowpass", sr, music_mtof_scalar(m3) * 2.8, 0.9, 0.0);
+    sig = music_taper(sig, sr, 0.003, std::min(0.12, dur * 0.5));
+    return music_normalize(sig * amp, 1.0);
+}
+
+static Vector music_bass_sub(double sr, double hz, double dur, double amp, double wobble_hz) {
+    std::size_t n = (std::size_t)std::max(1, music_iround(sr * dur));
+    Vector sub = music_tone(sr, hz, dur, 1.0, music_sine_table());
+    Vector overtone = music_tone(sr, hz * 2.0, dur, 1.0, music_tri_table());
+    Vector lfo = music_voice_from_freqs(sr, Vector(std::max(0.01, wobble_hz), n), music_sine_table());
+    Vector sig = sub * 0.82 + overtone * 0.18;
+    for (std::size_t i = 0; i < n; ++i) sig[i] *= 0.7 + 0.3 * ((lfo[i] + 1.0) * 0.5);
+    sig = music_taper(sig, sr, 0.003, std::min(0.08, dur * 0.35));
+    return music_normalize(sig * amp, 1.0);
 }
 
 static Vector music_stereo_interleave(const Vector& left, const Vector& right) {
@@ -340,7 +486,7 @@ static Vector music_pat(double sr, double bpm, double beats, const std::vector<d
     int total = music_beat_samples(sr, bpm, beats);
     if (total <= 0) return Vector(0.0, 0);
     if (pattern.empty() || event.size() == 0) return Vector(0.0, (std::size_t)total);
-    int step_samples = music_iround((double)total / (double)pattern.size());
+    int step_samples = std::max(1, music_iround((double)total / (double)pattern.size()));
     std::vector<ExprPtr> mix_args;
     for (std::size_t i = 0; i < pattern.size(); ++i) {
         if (pattern[i] == 0.0) continue;
@@ -370,7 +516,7 @@ static Vector music_patnotes(double sr, double bpm, double beats,
         if (w == 0.0) continue;
         double midi = midi_notes[note_index % midi_notes.size()];
         ++note_index;
-        double hz = 440.0 * std::pow(2.0, (midi - 69.0) / 12.0);
+        double hz = music_mtof_scalar(midi);
         Vector ev = music_note_voice(sr, hz, dur_sec, amp * std::abs(w), shape);
         mix_args.push_back(make_scalar((double)((int)i * step_samples)));
         mix_args.push_back(make_vec(ev));
@@ -398,7 +544,7 @@ static Vector music_bassline(double sr, double bpm, double beats,
         if (w == 0.0) continue;
         double midi = midi_notes[note_index % midi_notes.size()];
         ++note_index;
-        double hz = 440.0 * std::pow(2.0, (midi - 69.0) / 12.0);
+        double hz = music_mtof_scalar(midi);
         Vector ev = music_bass_voice(sr, hz, dur_sec, amp * std::abs(w), wobble_hz, shape);
         mix_args.push_back(make_scalar((double)((int)i * step_samples)));
         mix_args.push_back(make_vec(ev));
@@ -409,9 +555,7 @@ static Vector music_bassline(double sr, double bpm, double beats,
 
 static std::vector<double> music_arp_order(const std::vector<double>& notes, int mode) {
     if (notes.empty()) return {};
-    if (mode == 1) {
-        return std::vector<double>(notes.rbegin(), notes.rend());
-    }
+    if (mode == 1) return std::vector<double>(notes.rbegin(), notes.rend());
     if (mode == 2 && notes.size() > 1) {
         std::vector<double> out = notes;
         for (std::size_t i = notes.size() - 2; i > 0; --i) out.push_back(notes[i]);
@@ -436,7 +580,7 @@ static Vector music_arp(double sr, double bpm, double beats,
     std::vector<ExprPtr> mix_args;
     for (int i = 0; i < count; ++i) {
         double midi = order[(std::size_t)i % order.size()];
-        double hz = 440.0 * std::pow(2.0, (midi - 69.0) / 12.0);
+        double hz = music_mtof_scalar(midi);
         Vector ev = music_note_voice(sr, hz, dur_sec, amp, shape);
         mix_args.push_back(make_scalar((double)(i * step_samples)));
         mix_args.push_back(make_vec(ev));
@@ -450,7 +594,7 @@ static Proc fn_mtof() {
         if (args.size() != 1) throw std::runtime_error("mtof expects 1 argument");
         Vector midi = as_vec(args[0]);
         Vector hz(midi.size());
-        for (std::size_t i = 0; i < midi.size(); ++i) hz[i] = 440.0 * std::pow(2.0, (midi[i] - 69.0) / 12.0);
+        for (std::size_t i = 0; i < midi.size(); ++i) hz[i] = music_mtof_scalar(midi[i]);
         return make_vec(hz);
     };
 }
@@ -521,9 +665,8 @@ static Proc fn_pulse() {
         std::size_t width = (args.size() >= 3) ? (std::size_t)std::max(1.0, as_scalar(args[2])) : 1;
         double amp = (args.size() == 4) ? as_scalar(args[3]) : 1.0;
         Vector r(0.0, n);
-        for (std::size_t i = 0; i < n; i += step) {
+        for (std::size_t i = 0; i < n; i += step)
             for (std::size_t j = 0; j < width && i + j < n; ++j) r[i + j] = amp;
-        }
         return make_vec(r);
     };
 }
@@ -591,6 +734,31 @@ static Proc fn_drone() {
     };
 }
 
+static Proc fn_drone_noise() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 4 || args.size() > 5) throw std::runtime_error("drone_noise expects: sr hz dur amp [lfo_hz=0.08]");
+        double sr  = as_scalar(args[0]);
+        double hz  = as_scalar(args[1]);
+        double dur = as_scalar(args[2]);
+        double amp = as_scalar(args[3]);
+        double lfo = (args.size() == 5) ? as_scalar(args[4]) : 0.08;
+        return make_vec(music_drone_noise(sr, hz, dur, amp, lfo));
+    };
+}
+
+static Proc fn_drone_reson() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 4 || args.size() > 6) throw std::runtime_error("drone_reson expects: sr hz dur amp [tau=1.2] [lfo_hz=0.07]");
+        double sr  = as_scalar(args[0]);
+        double hz  = as_scalar(args[1]);
+        double dur = as_scalar(args[2]);
+        double amp = as_scalar(args[3]);
+        double tau = (args.size() >= 5) ? as_scalar(args[4]) : 1.2;
+        double lfo = (args.size() == 6) ? as_scalar(args[5]) : 0.07;
+        return make_vec(music_drone_reson(sr, hz, dur, amp, tau, lfo));
+    };
+}
+
 static Proc fn_kick() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 2 || args.size() > 6) throw std::runtime_error("kick expects: sr dur [f0=140] [f1=42] [tau=0.18] [amp=1]");
@@ -601,6 +769,33 @@ static Proc fn_kick() {
         double tau = (args.size() >= 5) ? as_scalar(args[4]) : 0.18;
         double amp = (args.size() == 6) ? as_scalar(args[5]) : 1.0;
         return make_vec(music_kick(sr, dur, f0, f1, tau, amp));
+    };
+}
+
+static Proc fn_kick_click() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 2 || args.size() > 7) throw std::runtime_error("kick_click expects: sr dur [f0=170] [f1=36] [tau=0.18] [click=0.4] [amp=1]");
+        double sr  = as_scalar(args[0]);
+        double dur = as_scalar(args[1]);
+        double f0  = (args.size() >= 3) ? as_scalar(args[2]) : 170.0;
+        double f1  = (args.size() >= 4) ? as_scalar(args[3]) : 36.0;
+        double tau = (args.size() >= 5) ? as_scalar(args[4]) : 0.18;
+        double click = (args.size() >= 6) ? as_scalar(args[5]) : 0.4;
+        double amp = (args.size() == 7) ? as_scalar(args[6]) : 1.0;
+        return make_vec(music_kick_click(sr, dur, f0, f1, tau, click, amp));
+    };
+}
+
+static Proc fn_kick_sub() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 2 || args.size() > 6) throw std::runtime_error("kick_sub expects: sr dur [f0=95] [f1=28] [tau=0.28] [amp=1]");
+        double sr  = as_scalar(args[0]);
+        double dur = as_scalar(args[1]);
+        double f0  = (args.size() >= 3) ? as_scalar(args[2]) : 95.0;
+        double f1  = (args.size() >= 4) ? as_scalar(args[3]) : 28.0;
+        double tau = (args.size() >= 5) ? as_scalar(args[4]) : 0.28;
+        double amp = (args.size() == 6) ? as_scalar(args[5]) : 1.0;
+        return make_vec(music_kick_sub(sr, dur, f0, f1, tau, amp));
     };
 }
 
@@ -627,6 +822,66 @@ static Proc fn_hat() {
         double tau = (args.size() >= 4) ? as_scalar(args[3]) : 0.05;
         double amp = (args.size() == 5) ? as_scalar(args[4]) : 1.0;
         return make_vec(music_hat(sr, dur, hp, tau, amp));
+    };
+}
+
+static Proc fn_hat_dark() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 2 || args.size() > 5) throw std::runtime_error("hat_dark expects: sr dur [hp_hz=4500] [tau=0.08] [amp=1]");
+        double sr = as_scalar(args[0]);
+        double dur = as_scalar(args[1]);
+        double hp = (args.size() >= 3) ? as_scalar(args[2]) : 4500.0;
+        double tau = (args.size() >= 4) ? as_scalar(args[3]) : 0.08;
+        double amp = (args.size() == 5) ? as_scalar(args[4]) : 1.0;
+        return make_vec(music_hat_dark(sr, dur, hp, tau, amp));
+    };
+}
+
+static Proc fn_hat_metal() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 2 || args.size() > 5) throw std::runtime_error("hat_metal expects: sr dur [base_hz=7600] [tau=0.05] [amp=1]");
+        double sr = as_scalar(args[0]);
+        double dur = as_scalar(args[1]);
+        double base = (args.size() >= 3) ? as_scalar(args[2]) : 7600.0;
+        double tau = (args.size() >= 4) ? as_scalar(args[3]) : 0.05;
+        double amp = (args.size() == 5) ? as_scalar(args[4]) : 1.0;
+        return make_vec(music_hat_metal(sr, dur, base, tau, amp));
+    };
+}
+
+static Proc fn_pad_minor() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 4 || args.size() > 5) throw std::runtime_error("pad_minor expects: sr root_midi dur amp [lfo_hz=0.08]");
+        double sr = as_scalar(args[0]);
+        double root_midi = as_scalar(args[1]);
+        double dur = as_scalar(args[2]);
+        double amp = as_scalar(args[3]);
+        double lfo = (args.size() == 5) ? as_scalar(args[4]) : 0.08;
+        return make_vec(music_pad_minor(sr, root_midi, dur, amp, lfo));
+    };
+}
+
+static Proc fn_stab_minor() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 4 || args.size() > 5) throw std::runtime_error("stab_minor expects: sr root_midi dur amp [shape=1]");
+        double sr = as_scalar(args[0]);
+        double root_midi = as_scalar(args[1]);
+        double dur = as_scalar(args[2]);
+        double amp = as_scalar(args[3]);
+        int shape = (args.size() == 5) ? (int)as_scalar(args[4]) : 1;
+        return make_vec(music_stab_minor(sr, root_midi, dur, amp, shape));
+    };
+}
+
+static Proc fn_bass_sub() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 4 || args.size() > 5) throw std::runtime_error("bass_sub expects: sr hz dur amp [wobble_hz=1.2]");
+        double sr = as_scalar(args[0]);
+        double hz = as_scalar(args[1]);
+        double dur = as_scalar(args[2]);
+        double amp = as_scalar(args[3]);
+        double wobble = (args.size() == 5) ? as_scalar(args[4]) : 1.2;
+        return make_vec(music_bass_sub(sr, hz, dur, amp, wobble));
     };
 }
 
@@ -741,31 +996,40 @@ static Proc fn_stereo() {
 }
 
 static void add_music(std::shared_ptr<Env> env) {
-    env->set("mtof",      make_proc(fn_mtof()));
-    env->set("ftom",      make_proc(fn_ftom()));
-    env->set("seq",       make_proc(fn_seq()));
-    env->set("hold",      make_proc(fn_hold()));
-    env->set("loop",      make_proc(fn_loop()));
-    env->set("impulse",   make_proc(fn_impulse()));
-    env->set("noise",     make_proc(fn_noise()));
-    env->set("pulse",     make_proc(fn_pulse()));
-    env->set("euclid",    make_proc(fn_euclid()));
-    env->set("steps",     make_proc(fn_steps()));
-    env->set("beatsamps", make_proc(fn_beatsamps()));
-    env->set("tone",      make_proc(fn_tone()));
-    env->set("drone",     make_proc(fn_drone()));
-    env->set("kick",      make_proc(fn_kick()));
-    env->set("snare",     make_proc(fn_snare()));
-    env->set("hat",       make_proc(fn_hat()));
-    env->set("bmix",      make_proc(fn_bmix()));
-    env->set("pat",       make_proc(fn_pat()));
-    env->set("patnotes",  make_proc(fn_patnotes()));
-    env->set("bassline",  make_proc(fn_bassline()));
-    env->set("arp",       make_proc(fn_arp()));
-    env->set("gate",      make_proc(fn_gate()));
-    env->set("norm",      make_proc(fn_norm()));
-    env->set("chop",      make_proc(fn_chop()));
-    env->set("stereo",    make_proc(fn_stereo()));
+    env->set("mtof",        make_proc(fn_mtof()));
+    env->set("ftom",        make_proc(fn_ftom()));
+    env->set("seq",         make_proc(fn_seq()));
+    env->set("hold",        make_proc(fn_hold()));
+    env->set("loop",        make_proc(fn_loop()));
+    env->set("impulse",     make_proc(fn_impulse()));
+    env->set("noise",       make_proc(fn_noise()));
+    env->set("pulse",       make_proc(fn_pulse()));
+    env->set("euclid",      make_proc(fn_euclid()));
+    env->set("steps",       make_proc(fn_steps()));
+    env->set("beatsamps",   make_proc(fn_beatsamps()));
+    env->set("tone",        make_proc(fn_tone()));
+    env->set("drone",       make_proc(fn_drone()));
+    env->set("drone_noise", make_proc(fn_drone_noise()));
+    env->set("drone_reson", make_proc(fn_drone_reson()));
+    env->set("kick",        make_proc(fn_kick()));
+    env->set("kick_click",  make_proc(fn_kick_click()));
+    env->set("kick_sub",    make_proc(fn_kick_sub()));
+    env->set("snare",       make_proc(fn_snare()));
+    env->set("hat",         make_proc(fn_hat()));
+    env->set("hat_dark",    make_proc(fn_hat_dark()));
+    env->set("hat_metal",   make_proc(fn_hat_metal()));
+    env->set("pad_minor",   make_proc(fn_pad_minor()));
+    env->set("stab_minor",  make_proc(fn_stab_minor()));
+    env->set("bass_sub",    make_proc(fn_bass_sub()));
+    env->set("bmix",        make_proc(fn_bmix()));
+    env->set("pat",         make_proc(fn_pat()));
+    env->set("patnotes",    make_proc(fn_patnotes()));
+    env->set("bassline",    make_proc(fn_bassline()));
+    env->set("arp",         make_proc(fn_arp()));
+    env->set("gate",        make_proc(fn_gate()));
+    env->set("norm",        make_proc(fn_norm()));
+    env->set("chop",        make_proc(fn_chop()));
+    env->set("stereo",      make_proc(fn_stereo()));
 }
 
 #endif
