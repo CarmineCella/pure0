@@ -37,22 +37,28 @@
 // helpers
 // -----------------------------------------------------------------------------
 
-static std::mt19937& samplesynth_rng() {
+static std::mt19937& rng() {
     static std::mt19937 rng{std::random_device{}()};
     return rng;
 }
 
-static std::string samplesynth_to_lower(std::string s) {
+static double urand(double a, double b) {
+    if (b < a) std::swap(a, b);
+    std::uniform_real_distribution<double> dist(a, b);
+    return dist(rng());
+}
+
+static std::string to_lower(std::string s) {
     for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return s;
 }
 
-static bool samplesynth_is_wav_path(const std::filesystem::path& p) {
+static bool is_wav_path(const std::filesystem::path& p) {
     if (!p.has_extension()) return false;
-    return samplesynth_to_lower(p.extension().string()) == ".wav";
+    return to_lower(p.extension().string()) == ".wav";
 }
 
-static std::vector<std::string> samplesynth_split(const std::string& s, char sep) {
+static std::vector<std::string> split(const std::string& s, char sep) {
     std::vector<std::string> out;
     std::string cur;
     for (char c : s) {
@@ -67,7 +73,7 @@ static std::vector<std::string> samplesynth_split(const std::string& s, char sep
     return out;
 }
 
-static std::string samplesynth_escape_string(const std::string& s) {
+static std::string escape_string(const std::string& s) {
     std::string out;
     out.reserve(s.size() + 8);
     for (char c : s) {
@@ -82,9 +88,9 @@ static std::string samplesynth_escape_string(const std::string& s) {
     return out;
 }
 
-static std::string samplesynth_repr(const ExprPtr& x) {
+static std::string repr(const ExprPtr& x) {
     if (is_symbol(x)) return as_symbol(x);
-    if (is_string(x)) return "\"" + samplesynth_escape_string(as_string(x)) + "\"";
+    if (is_string(x)) return "\"" + escape_string(as_string(x)) + "\"";
     if (is_lambda(x)) return "<lambda>";
     if (is_proc(x))   return "<proc>";
     if (is_list(x)) {
@@ -93,7 +99,7 @@ static std::string samplesynth_repr(const ExprPtr& x) {
         oss << "(";
         for (std::size_t i = 0; i < xs.size(); ++i) {
             if (i) oss << " ";
-            oss << samplesynth_repr(xs[i]);
+            oss << repr(xs[i]);
         }
         oss << ")";
         return oss.str();
@@ -106,14 +112,14 @@ static std::string samplesynth_repr(const ExprPtr& x) {
     return oss.str();
 }
 
-static ExprPtr samplesynth_kv(const std::string& key, const ExprPtr& value) {
+static ExprPtr kv(const std::string& key, const ExprPtr& value) {
     Expr::List kv;
     kv.push_back(make_symbol(key));
     kv.push_back(value);
     return make_list(kv);
 }
 
-static ExprPtr samplesynth_entry_make(const std::string& family,
+static ExprPtr entry_make(const std::string& family,
                                       const std::string& instrument,
                                       const std::string& articulation,
                                       const std::string& pitch,
@@ -121,17 +127,17 @@ static ExprPtr samplesynth_entry_make(const std::string& family,
                                       const std::string& dynamic,
                                       const std::string& path) {
     Expr::List entry;
-    entry.push_back(samplesynth_kv("family",       make_string(family)));
-    entry.push_back(samplesynth_kv("instrument",   make_string(instrument)));
-    entry.push_back(samplesynth_kv("articulation", make_string(articulation)));
-    entry.push_back(samplesynth_kv("pitch",        make_string(pitch)));
-    entry.push_back(samplesynth_kv("midi",         make_scalar((double)midi)));
-    entry.push_back(samplesynth_kv("dynamic",      make_string(dynamic)));
-    entry.push_back(samplesynth_kv("path",         make_string(path)));
+    entry.push_back(kv("family",       make_string(family)));
+    entry.push_back(kv("instrument",   make_string(instrument)));
+    entry.push_back(kv("articulation", make_string(articulation)));
+    entry.push_back(kv("pitch",        make_string(pitch)));
+    entry.push_back(kv("midi",         make_scalar((double)midi)));
+    entry.push_back(kv("dynamic",      make_string(dynamic)));
+    entry.push_back(kv("path",         make_string(path)));
     return make_list(entry);
 }
 
-static bool samplesynth_entry_has_key(const ExprPtr& entry, const std::string& key) {
+static bool entry_has_key(const ExprPtr& entry, const std::string& key) {
     if (!is_list(entry)) return false;
     const auto& xs = std::get<Expr::List>(entry->v);
     for (const auto& item : xs) {
@@ -143,7 +149,7 @@ static bool samplesynth_entry_has_key(const ExprPtr& entry, const std::string& k
     return false;
 }
 
-static ExprPtr samplesynth_entry_get(const ExprPtr& entry, const std::string& key) {
+static ExprPtr entry_get(const ExprPtr& entry, const std::string& key) {
     if (!is_list(entry)) throw std::runtime_error("db entry must be a list");
     const auto& xs = std::get<Expr::List>(entry->v);
     for (const auto& item : xs) {
@@ -155,19 +161,19 @@ static ExprPtr samplesynth_entry_get(const ExprPtr& entry, const std::string& ke
     throw std::runtime_error("db entry missing key: " + key);
 }
 
-static std::string samplesynth_entry_get_string(const ExprPtr& entry, const std::string& key) {
-    ExprPtr x = samplesynth_entry_get(entry, key);
+static std::string entry_get_string(const ExprPtr& entry, const std::string& key) {
+    ExprPtr x = entry_get(entry, key);
     if (is_string(x)) return as_string(x);
     if (is_symbol(x)) return as_symbol(x);
     return to_string_value(x);
 }
 
-static int samplesynth_entry_get_int(const ExprPtr& entry, const std::string& key) {
-    return (int)std::lround(as_scalar(samplesynth_entry_get(entry, key)));
+static int entry_get_int(const ExprPtr& entry, const std::string& key) {
+    return (int)std::lround(as_scalar(entry_get(entry, key)));
 }
 
-static int samplesynth_pitch_class(const std::string& name) {
-    const std::string s = samplesynth_to_lower(name);
+static int pitch_class(const std::string& name) {
+    const std::string s = to_lower(name);
     if (s == "c")  return 0;
     if (s == "c#" || s == "db") return 1;
     if (s == "d")  return 2;
@@ -183,7 +189,7 @@ static int samplesynth_pitch_class(const std::string& name) {
     throw std::runtime_error("cannot parse pitch class: " + name);
 }
 
-static int samplesynth_pitch_to_midi(const std::string& pitch) {
+static int pitch_to_midi(const std::string& pitch) {
     if (pitch.empty()) throw std::runtime_error("empty pitch");
     std::string pc;
     std::string oct;
@@ -199,16 +205,16 @@ static int samplesynth_pitch_to_midi(const std::string& pitch) {
     }
     if (oct.empty()) throw std::runtime_error("pitch has no octave: " + pitch);
     int octave = std::stoi(oct);
-    int pclass = samplesynth_pitch_class(pc);
+    int pclass = pitch_class(pc);
     return 12 * (octave + 1) + pclass;
 }
 
-static bool samplesynth_parse_sol_filename(const std::string& stem,
+static bool parse_sol_filename(const std::string& stem,
                                            std::string& instrument,
                                            std::string& articulation,
                                            std::string& pitch,
                                            std::string& dynamic) {
-    const std::vector<std::string> parts = samplesynth_split(stem, '-');
+    const std::vector<std::string> parts = split(stem, '-');
     if (parts.size() < 4) return false;
     instrument   = parts[0];
     articulation = parts[1];
@@ -217,7 +223,7 @@ static bool samplesynth_parse_sol_filename(const std::string& stem,
     return !(instrument.empty() || articulation.empty() || pitch.empty() || dynamic.empty());
 }
 
-static Vector samplesynth_mix_overlay(const std::vector<std::pair<int, Vector>>& events) {
+static Vector mix_overlay(const std::vector<std::pair<int, Vector>>& events) {
     std::size_t out_len = 0;
     for (const auto& ev : events) {
         if (ev.first < 0) throw std::runtime_error("negative mix offset");
@@ -232,11 +238,11 @@ static Vector samplesynth_mix_overlay(const std::vector<std::pair<int, Vector>>&
     return out;
 }
 
-static int samplesynth_beat_to_samples(double sr, double bpm, double beats) {
+static int beat_to_samples(double sr, double bpm, double beats) {
     return (int)std::llround((60.0 * beats * sr) / bpm);
 }
 
-static std::vector<int> samplesynth_active_steps(const Vector& pattern) {
+static std::vector<int> active_steps(const Vector& pattern) {
     std::vector<int> steps;
     for (std::size_t i = 0; i < pattern.size(); ++i) {
         if (pattern[i] != 0.0) steps.push_back((int)i);
@@ -244,7 +250,7 @@ static std::vector<int> samplesynth_active_steps(const Vector& pattern) {
     return steps;
 }
 
-static Vector samplesynth_mono_fold(const Vector& interleaved, int nch) {
+static Vector mono_fold(const Vector& interleaved, int nch) {
     if (nch <= 1) return interleaved;
     if (interleaved.size() % (std::size_t)nch != 0)
         throw std::runtime_error("wav data size not divisible by channel count");
@@ -258,7 +264,7 @@ static Vector samplesynth_mono_fold(const Vector& interleaved, int nch) {
     return mono;
 }
 
-static Vector samplesynth_read_wav_signal(const std::string& path, int* out_sr = nullptr, int* out_nch = nullptr) {
+static Vector read_wav_signal(const std::string& path, int* out_sr = nullptr, int* out_nch = nullptr) {
     std::ifstream f(path, std::ios::binary);
     if (!f) throw std::runtime_error("wavread: cannot open " + path);
 
@@ -331,50 +337,50 @@ static Vector samplesynth_read_wav_signal(const std::string& path, int* out_sr =
     return sig;
 }
 
-static Vector samplesynth_load_mono_resampled(const std::string& path, int target_sr = 0) {
+static Vector load_mono_resampled(const std::string& path, int target_sr = 0) {
     int src_sr = 0, nch = 1;
-    Vector sig = samplesynth_read_wav_signal(path, &src_sr, &nch);
-    sig = samplesynth_mono_fold(sig, nch);
+    Vector sig = read_wav_signal(path, &src_sr, &nch);
+    sig = mono_fold(sig, nch);
     if (target_sr > 0 && src_sr > 0 && src_sr != target_sr) {
         sig = resample(sig, (double)target_sr / (double)src_sr);
     }
     return sig;
 }
 
-static Vector samplesynth_extract_db_signal(const ExprPtr& x, int target_sr = 0) {
-    if (is_string(x)) return samplesynth_load_mono_resampled(as_string(x), target_sr);
-    if (is_list(x) && samplesynth_entry_has_key(x, "path")) {
-        return samplesynth_load_mono_resampled(samplesynth_entry_get_string(x, "path"), target_sr);
+static Vector extract_db_signal(const ExprPtr& x, int target_sr = 0) {
+    if (is_string(x)) return load_mono_resampled(as_string(x), target_sr);
+    if (is_list(x) && entry_has_key(x, "path")) {
+        return load_mono_resampled(entry_get_string(x, "path"), target_sr);
     }
     throw std::runtime_error("expected db entry or string path");
 }
 
-static std::vector<ExprPtr> samplesynth_db_entries(const ExprPtr& db) {
+static std::vector<ExprPtr> db_entries(const ExprPtr& db) {
     if (!is_list(db)) throw std::runtime_error("database must be a list");
     return std::get<Expr::List>(db->v);
 }
 
-static std::vector<ExprPtr> samplesynth_filter_exact(const std::vector<ExprPtr>& xs,
+static std::vector<ExprPtr> filter_exact(const std::vector<ExprPtr>& xs,
                                                      const std::string& key,
                                                      const std::string& val) {
     std::vector<ExprPtr> out;
     for (const auto& e : xs) {
         try {
-            if (samplesynth_entry_get_string(e, key) == val) out.push_back(e);
+            if (entry_get_string(e, key) == val) out.push_back(e);
         } catch (...) {
         }
     }
     return out;
 }
 
-static ExprPtr samplesynth_list_from_vector(const std::vector<ExprPtr>& xs) {
+static ExprPtr list_from_vector(const std::vector<ExprPtr>& xs) {
     return make_list(Expr::List(xs.begin(), xs.end()));
 }
 
-static ExprPtr samplesynth_choose_random(const std::vector<ExprPtr>& xs) {
+static ExprPtr choose_random(const std::vector<ExprPtr>& xs) {
     if (xs.empty()) return make_list({});
     std::uniform_int_distribution<std::size_t> dist(0, xs.size() - 1);
-    return xs[dist(samplesynth_rng())];
+    return xs[dist(rng())];
 }
 
 // -----------------------------------------------------------------------------
@@ -393,15 +399,15 @@ static Proc fn_loaddb() {
         for (const auto& de : std::filesystem::recursive_directory_iterator(root)) {
             if (!de.is_regular_file()) continue;
             const std::filesystem::path p = de.path();
-            if (!samplesynth_is_wav_path(p)) continue;
+            if (!is_wav_path(p)) continue;
 
             std::string instrument, articulation, pitch, dynamic;
-            if (!samplesynth_parse_sol_filename(p.stem().string(), instrument, articulation, pitch, dynamic))
+            if (!parse_sol_filename(p.stem().string(), instrument, articulation, pitch, dynamic))
                 continue;
 
             int midi = 0;
             try {
-                midi = samplesynth_pitch_to_midi(pitch);
+                midi = pitch_to_midi(pitch);
             } catch (...) {
                 continue;
             }
@@ -414,7 +420,7 @@ static Proc fn_loaddb() {
             } catch (...) {
             }
 
-            db.push_back(samplesynth_entry_make(
+            db.push_back(entry_make(
                 family,
                 instrument,
                 articulation,
@@ -435,7 +441,7 @@ static Proc fn_savedb() {
             throw std::runtime_error("savedb expects: db path");
         std::ofstream out(as_string(args[1]));
         if (!out) throw std::runtime_error("savedb: cannot open " + as_string(args[1]));
-        out << samplesynth_repr(args[0]);
+        out << repr(args[0]);
         return args[0];
     };
 }
@@ -455,9 +461,9 @@ static Proc fn_readdb() {
 static Proc fn_db_stats() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("db-stats expects: db");
-        const auto xs = samplesynth_db_entries(args[0]);
+        const auto xs = db_entries(args[0]);
         Expr::List out;
-        out.push_back(samplesynth_kv("entries", make_scalar((double)xs.size())));
+        out.push_back(kv("entries", make_scalar((double)xs.size())));
         return make_list(out);
     };
 }
@@ -465,10 +471,10 @@ static Proc fn_db_stats() {
 static Proc fn_db_instruments() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("db-instruments expects: db");
-        const auto xs = samplesynth_db_entries(args[0]);
+        const auto xs = db_entries(args[0]);
         std::vector<std::string> names;
         for (const auto& e : xs) {
-            try { names.push_back(samplesynth_entry_get_string(e, "instrument")); }
+            try { names.push_back(entry_get_string(e, "instrument")); }
             catch (...) {}
         }
         std::sort(names.begin(), names.end());
@@ -483,13 +489,13 @@ static Proc fn_db_pitches() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 2 || args.size() > 4 || !is_string(args[1]))
             throw std::runtime_error("db-pitches expects: db instrument [articulation] [dynamic]");
-        auto xs = samplesynth_db_entries(args[0]);
-        xs = samplesynth_filter_exact(xs, "instrument", as_string(args[1]));
-        if (args.size() >= 3 && is_string(args[2])) xs = samplesynth_filter_exact(xs, "articulation", as_string(args[2]));
-        if (args.size() >= 4 && is_string(args[3])) xs = samplesynth_filter_exact(xs, "dynamic", as_string(args[3]));
+        auto xs = db_entries(args[0]);
+        xs = filter_exact(xs, "instrument", as_string(args[1]));
+        if (args.size() >= 3 && is_string(args[2])) xs = filter_exact(xs, "articulation", as_string(args[2]));
+        if (args.size() >= 4 && is_string(args[3])) xs = filter_exact(xs, "dynamic", as_string(args[3]));
         std::vector<std::string> names;
         for (const auto& e : xs) {
-            try { names.push_back(samplesynth_entry_get_string(e, "pitch")); }
+            try { names.push_back(entry_get_string(e, "pitch")); }
             catch (...) {}
         }
         std::sort(names.begin(), names.end());
@@ -508,13 +514,13 @@ static Proc fn_db_filter() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 3 || !is_string(args[1]))
             throw std::runtime_error("db-filter expects: db key value");
-        const auto xs = samplesynth_db_entries(args[0]);
+        const auto xs = db_entries(args[0]);
         const std::string key = as_string(args[1]);
         const std::string val = to_string_value(args[2]);
         Expr::List out;
         for (const auto& e : xs) {
             try {
-                if (samplesynth_entry_get_string(e, key) == val) out.push_back(e);
+                if (entry_get_string(e, key) == val) out.push_back(e);
             } catch (...) {
             }
         }
@@ -526,11 +532,11 @@ static Proc fn_db_pick() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 5)
             throw std::runtime_error("db-pick expects: db instrument articulation pitch dynamic");
-        auto xs = samplesynth_db_entries(args[0]);
-        xs = samplesynth_filter_exact(xs, "instrument", to_string_value(args[1]));
-        xs = samplesynth_filter_exact(xs, "articulation", to_string_value(args[2]));
-        xs = samplesynth_filter_exact(xs, "pitch", to_string_value(args[3]));
-        xs = samplesynth_filter_exact(xs, "dynamic", to_string_value(args[4]));
+        auto xs = db_entries(args[0]);
+        xs = filter_exact(xs, "instrument", to_string_value(args[1]));
+        xs = filter_exact(xs, "articulation", to_string_value(args[2]));
+        xs = filter_exact(xs, "pitch", to_string_value(args[3]));
+        xs = filter_exact(xs, "dynamic", to_string_value(args[4]));
         if (xs.empty()) return make_list({});
         return xs.front();
     };
@@ -540,11 +546,11 @@ static Proc fn_db_rand() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 1 || args.size() > 4)
             throw std::runtime_error("db-rand expects: db [instrument] [articulation] [dynamic]");
-        auto xs = samplesynth_db_entries(args[0]);
-        if (args.size() >= 2) xs = samplesynth_filter_exact(xs, "instrument", to_string_value(args[1]));
-        if (args.size() >= 3) xs = samplesynth_filter_exact(xs, "articulation", to_string_value(args[2]));
-        if (args.size() >= 4) xs = samplesynth_filter_exact(xs, "dynamic", to_string_value(args[3]));
-        return samplesynth_choose_random(xs);
+        auto xs = db_entries(args[0]);
+        if (args.size() >= 2) xs = filter_exact(xs, "instrument", to_string_value(args[1]));
+        if (args.size() >= 3) xs = filter_exact(xs, "articulation", to_string_value(args[2]));
+        if (args.size() >= 4) xs = filter_exact(xs, "dynamic", to_string_value(args[3]));
+        return choose_random(xs);
     };
 }
 
@@ -552,17 +558,17 @@ static Proc fn_db_nearest() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 4 || args.size() > 5)
             throw std::runtime_error("db-nearest expects: db instrument midi dynamic [articulation]");
-        auto xs = samplesynth_db_entries(args[0]);
-        xs = samplesynth_filter_exact(xs, "instrument", to_string_value(args[1]));
-        xs = samplesynth_filter_exact(xs, "dynamic", to_string_value(args[3]));
-        if (args.size() == 5) xs = samplesynth_filter_exact(xs, "articulation", to_string_value(args[4]));
+        auto xs = db_entries(args[0]);
+        xs = filter_exact(xs, "instrument", to_string_value(args[1]));
+        xs = filter_exact(xs, "dynamic", to_string_value(args[3]));
+        if (args.size() == 5) xs = filter_exact(xs, "articulation", to_string_value(args[4]));
         const int midi = (int)std::lround(as_scalar(args[2]));
         if (xs.empty()) return make_list({});
 
         int best_dist = std::numeric_limits<int>::max();
         ExprPtr best = xs.front();
         for (const auto& e : xs) {
-            int m = samplesynth_entry_get_int(e, "midi");
+            int m = entry_get_int(e, "midi");
             int d = std::abs(m - midi);
             if (d < best_dist) {
                 best_dist = d;
@@ -582,7 +588,7 @@ static Proc fn_db_load() {
         if (args.empty() || args.size() > 2)
             throw std::runtime_error("db-load expects: entry-or-path [target_sr]");
         int target_sr = (args.size() == 2) ? (int)std::lround(as_scalar(args[1])) : 0;
-        return make_vec(samplesynth_extract_db_signal(args[0], target_sr));
+        return make_vec(extract_db_signal(args[0], target_sr));
     };
 }
 
@@ -591,7 +597,7 @@ static Proc fn_sample() {
         if (args.empty() || args.size() > 2 || !is_string(args[0]))
             throw std::runtime_error("sample expects: path [target_sr]");
         int target_sr = (args.size() == 2) ? (int)std::lround(as_scalar(args[1])) : 0;
-        return make_vec(samplesynth_load_mono_resampled(as_string(args[0]), target_sr));
+        return make_vec(load_mono_resampled(as_string(args[0]), target_sr));
     };
 }
 
@@ -665,10 +671,10 @@ static Proc fn_sample_pat() {
         const double bpm = as_scalar(args[1]);
         const double beats = as_scalar(args[2]);
         const Vector pattern = as_vec(args[3]);
-        const Vector sig = samplesynth_extract_db_signal(args[4], (int)std::lround(sr));
+        const Vector sig = extract_db_signal(args[4], (int)std::lround(sr));
 
         if (pattern.size() == 0) return make_vec(Vector(0.0, 0));
-        const int total = samplesynth_beat_to_samples(sr, bpm, beats);
+        const int total = beat_to_samples(sr, bpm, beats);
         const int step_len = std::max(1, (int)std::llround((double)total / (double)pattern.size()));
 
         std::vector<std::pair<int, Vector>> events;
@@ -680,7 +686,7 @@ static Proc fn_sample_pat() {
             }
             events.push_back({(int)i * step_len, s});
         }
-        return make_vec(samplesynth_mix_overlay(events));
+        return make_vec(mix_overlay(events));
     };
 }
 
@@ -697,7 +703,7 @@ static Proc fn_sample_seq() {
         const Vector indexes = as_vec(args[5]);
 
         if (pattern.size() == 0 || bank.empty()) return make_vec(Vector(0.0, 0));
-        const int total = samplesynth_beat_to_samples(sr, bpm, beats);
+        const int total = beat_to_samples(sr, bpm, beats);
         const int step_len = std::max(1, (int)std::llround((double)total / (double)pattern.size()));
 
         std::vector<std::pair<int, Vector>> events;
@@ -710,14 +716,14 @@ static Proc fn_sample_seq() {
             }
             while (which < 0) which += (int)bank.size();
             which %= (int)bank.size();
-            Vector s = samplesynth_extract_db_signal(bank[(std::size_t)which], (int)std::lround(sr));
+            Vector s = extract_db_signal(bank[(std::size_t)which], (int)std::lround(sr));
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
             events.push_back({(int)i * step_len, s});
             ++note_i;
         }
-        return make_vec(samplesynth_mix_overlay(events));
+        return make_vec(mix_overlay(events));
     };
 }
 
@@ -725,17 +731,17 @@ static Proc fn_sol_note() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 5 && args.size() != 6)
             throw std::runtime_error("sol-note expects: db instrument articulation midi dynamic [target_sr]");
-        auto xs = samplesynth_db_entries(args[0]);
-        xs = samplesynth_filter_exact(xs, "instrument", to_string_value(args[1]));
-        xs = samplesynth_filter_exact(xs, "articulation", to_string_value(args[2]));
-        xs = samplesynth_filter_exact(xs, "dynamic", to_string_value(args[4]));
+        auto xs = db_entries(args[0]);
+        xs = filter_exact(xs, "instrument", to_string_value(args[1]));
+        xs = filter_exact(xs, "articulation", to_string_value(args[2]));
+        xs = filter_exact(xs, "dynamic", to_string_value(args[4]));
         if (xs.empty()) return make_vec(Vector(0.0, 0));
 
         const int midi = (int)std::lround(as_scalar(args[3]));
         int best_dist = std::numeric_limits<int>::max();
         ExprPtr best = xs.front();
         for (const auto& e : xs) {
-            const int m = samplesynth_entry_get_int(e, "midi");
+            const int m = entry_get_int(e, "midi");
             const int d = std::abs(m - midi);
             if (d < best_dist) {
                 best_dist = d;
@@ -744,7 +750,7 @@ static Proc fn_sol_note() {
         }
 
         const int target_sr = (args.size() == 6) ? (int)std::lround(as_scalar(args[5])) : 0;
-        return make_vec(samplesynth_extract_db_signal(best, target_sr));
+        return make_vec(extract_db_signal(best, target_sr));
     };
 }
 
@@ -757,26 +763,26 @@ static Proc fn_sol_pat() {
         const double beats = as_scalar(args[2]);
         const Vector pattern = as_vec(args[3]);
 
-        auto xs = samplesynth_db_entries(args[4]);
-        xs = samplesynth_filter_exact(xs, "instrument", to_string_value(args[5]));
-        xs = samplesynth_filter_exact(xs, "articulation", to_string_value(args[6]));
-        xs = samplesynth_filter_exact(xs, "dynamic", to_string_value(args[7]));
+        auto xs = db_entries(args[4]);
+        xs = filter_exact(xs, "instrument", to_string_value(args[5]));
+        xs = filter_exact(xs, "articulation", to_string_value(args[6]));
+        xs = filter_exact(xs, "dynamic", to_string_value(args[7]));
         if (pattern.size() == 0 || xs.empty()) return make_vec(Vector(0.0, 0));
 
-        const int total = samplesynth_beat_to_samples(sr, bpm, beats);
+        const int total = beat_to_samples(sr, bpm, beats);
         const int step_len = std::max(1, (int)std::llround((double)total / (double)pattern.size()));
         std::vector<std::pair<int, Vector>> events;
 
         for (std::size_t i = 0; i < pattern.size(); ++i) {
             if (pattern[i] == 0.0) continue;
-            ExprPtr e = samplesynth_choose_random(xs);
-            Vector s = samplesynth_extract_db_signal(e, (int)std::lround(sr));
+            ExprPtr e = choose_random(xs);
+            Vector s = extract_db_signal(e, (int)std::lround(sr));
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
             events.push_back({(int)i * step_len, s});
         }
-        return make_vec(samplesynth_mix_overlay(events));
+        return make_vec(mix_overlay(events));
     };
 }
 
@@ -792,15 +798,15 @@ static Proc fn_sol_patnotes() {
         const double bpm = as_scalar(args[1]);
         const double beats = as_scalar(args[2]);
         const Vector pattern = as_vec(args[3]);
-        auto xs = samplesynth_db_entries(args[4]);
-        xs = samplesynth_filter_exact(xs, "instrument", to_string_value(args[5]));
-        xs = samplesynth_filter_exact(xs, "articulation", to_string_value(args[6]));
-        xs = samplesynth_filter_exact(xs, "dynamic", to_string_value(args[8]));
+        auto xs = db_entries(args[4]);
+        xs = filter_exact(xs, "instrument", to_string_value(args[5]));
+        xs = filter_exact(xs, "articulation", to_string_value(args[6]));
+        xs = filter_exact(xs, "dynamic", to_string_value(args[8]));
         const Vector notes = as_vec(args[7]);
 
         if (pattern.size() == 0 || xs.empty() || notes.size() == 0) return make_vec(Vector(0.0, 0));
 
-        const int total = samplesynth_beat_to_samples(sr, bpm, beats);
+        const int total = beat_to_samples(sr, bpm, beats);
         const int step_len = std::max(1, (int)std::llround((double)total / (double)pattern.size()));
         std::vector<std::pair<int, Vector>> events;
         int note_idx = 0;
@@ -812,7 +818,7 @@ static Proc fn_sol_patnotes() {
             int best_dist = std::numeric_limits<int>::max();
             ExprPtr best = xs.front();
             for (const auto& e : xs) {
-                const int m = samplesynth_entry_get_int(e, "midi");
+                const int m = entry_get_int(e, "midi");
                 const int d = std::abs(m - target);
                 if (d < best_dist) {
                     best_dist = d;
@@ -820,7 +826,7 @@ static Proc fn_sol_patnotes() {
                 }
             }
 
-            Vector s = samplesynth_extract_db_signal(best, (int)std::lround(sr));
+            Vector s = extract_db_signal(best, (int)std::lround(sr));
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -828,7 +834,7 @@ static Proc fn_sol_patnotes() {
             ++note_idx;
         }
 
-        return make_vec(samplesynth_mix_overlay(events));
+        return make_vec(mix_overlay(events));
     };
 }
 
@@ -839,10 +845,10 @@ static Proc fn_sol_arp() {
         const double sr = as_scalar(args[0]);
         const double bpm = as_scalar(args[1]);
         const double beats = as_scalar(args[2]);
-        auto xs = samplesynth_db_entries(args[3]);
-        xs = samplesynth_filter_exact(xs, "instrument", to_string_value(args[4]));
-        xs = samplesynth_filter_exact(xs, "articulation", to_string_value(args[5]));
-        xs = samplesynth_filter_exact(xs, "dynamic", to_string_value(args[7]));
+        auto xs = db_entries(args[3]);
+        xs = filter_exact(xs, "instrument", to_string_value(args[4]));
+        xs = filter_exact(xs, "articulation", to_string_value(args[5]));
+        xs = filter_exact(xs, "dynamic", to_string_value(args[7]));
         const Vector notes = as_vec(args[6]);
         const int subdiv = std::max(1, (int)std::lround(as_scalar(args[8])));
         const int mode = (int)std::lround(as_scalar(args[9]));
@@ -861,7 +867,7 @@ static Proc fn_sol_arp() {
         }
 
         const int n_events = std::max(1, (int)std::llround(beats * subdiv));
-        const int event_step = std::max(1, samplesynth_beat_to_samples(sr, bpm, 1.0 / (double)subdiv));
+        const int event_step = std::max(1, beat_to_samples(sr, bpm, 1.0 / (double)subdiv));
         std::vector<std::pair<int, Vector>> events;
 
         for (int i = 0; i < n_events; ++i) {
@@ -869,17 +875,380 @@ static Proc fn_sol_arp() {
             int best_dist = std::numeric_limits<int>::max();
             ExprPtr best = xs.front();
             for (const auto& e : xs) {
-                const int m = samplesynth_entry_get_int(e, "midi");
+                const int m = entry_get_int(e, "midi");
                 const int d = std::abs(m - target);
                 if (d < best_dist) {
                     best_dist = d;
                     best = e;
                 }
             }
-            events.push_back({i * event_step, samplesynth_extract_db_signal(best, (int)std::lround(sr))});
+            events.push_back({i * event_step, extract_db_signal(best, (int)std::lround(sr))});
         }
 
-        return make_vec(samplesynth_mix_overlay(events));
+        return make_vec(mix_overlay(events));
+    };
+}
+
+
+static std::vector<std::vector<std::string>> parse_orchestra(const ExprPtr& orchestra) {
+    if (!is_list(orchestra)) throw std::runtime_error("orchgran: orchestra must be a list");
+    const auto& xs = std::get<Expr::List>(orchestra->v);
+    std::vector<std::vector<std::string>> groups;
+    if (xs.empty()) return groups;
+
+    if (is_string(xs[0]) || is_symbol(xs[0])) {
+        for (const auto& x : xs) {
+            if (!(is_string(x) || is_symbol(x)))
+                throw std::runtime_error("orchgran: mixed orchestra syntax");
+            groups.push_back({to_string_value(x)});
+        }
+        return groups;
+    }
+
+    for (const auto& g : xs) {
+        if (!is_list(g)) throw std::runtime_error("orchgran: nested orchestra groups must be lists");
+        const auto& gs = std::get<Expr::List>(g->v);
+        if (gs.empty()) continue;
+        std::vector<std::string> group;
+        for (const auto& item : gs) {
+            if (!(is_string(item) || is_symbol(item)))
+                throw std::runtime_error("orchgran: instrument names must be strings or symbols");
+            group.push_back(to_string_value(item));
+        }
+        groups.push_back(group);
+    }
+    return groups;
+}
+
+static double eval_scalar_curve(const ExprPtr& curve, double t, const std::string& ctx) {
+    if (!is_list(curve)) throw std::runtime_error(ctx + ": curve must be a list");
+    const auto& xs = std::get<Expr::List>(curve->v);
+    if (xs.empty()) throw std::runtime_error(ctx + ": empty curve");
+    if (!is_list(xs[0])) throw std::runtime_error(ctx + ": malformed curve");
+
+    double v = 0.0;
+    bool initialized = false;
+    for (const auto& e : xs) {
+        if (!is_list(e)) throw std::runtime_error(ctx + ": malformed entry");
+        const auto& kv = std::get<Expr::List>(e->v);
+        if (kv.size() < 2) throw std::runtime_error(ctx + ": malformed entry");
+        double te = as_scalar(kv[0]);
+        if (!initialized || te <= t) {
+            v = as_scalar(kv[1]);
+            initialized = true;
+        } else {
+            break;
+        }
+    }
+    if (!initialized) throw std::runtime_error(ctx + ": could not evaluate curve");
+    return v;
+}
+
+static std::pair<int, int> eval_octave_curve(const ExprPtr& curve, double t) {
+    if (!is_list(curve)) throw std::runtime_error("octave-range: curve must be a list");
+    const auto& xs = std::get<Expr::List>(curve->v);
+    if (xs.empty()) throw std::runtime_error("octave-range: empty curve");
+    if (!is_list(xs[0])) throw std::runtime_error("octave-range: malformed curve");
+
+    int lo = 3, hi = 5;
+    bool initialized = false;
+    for (const auto& e : xs) {
+        if (!is_list(e)) throw std::runtime_error("octave-range: malformed entry");
+        const auto& kv = std::get<Expr::List>(e->v);
+        if (kv.size() < 3) throw std::runtime_error("octave-range: entry must be (t lo hi)");
+        double te = as_scalar(kv[0]);
+        if (!initialized || te <= t) {
+            lo = (int)std::lround(as_scalar(kv[1]));
+            hi = (int)std::lround(as_scalar(kv[2]));
+            initialized = true;
+        } else {
+            break;
+        }
+    }
+    if (hi < lo) std::swap(lo, hi);
+    return {lo, hi};
+}
+
+static ExprPtr eval_payload_schedule(const ExprPtr& sched, double t, const std::string& ctx) {
+    if (!is_list(sched)) throw std::runtime_error(ctx + ": schedule must be a list");
+    const auto& xs = std::get<Expr::List>(sched->v);
+    if (xs.empty()) throw std::runtime_error(ctx + ": empty schedule");
+    ExprPtr payload;
+    bool initialized = false;
+    for (const auto& e : xs) {
+        if (!is_list(e)) throw std::runtime_error(ctx + ": malformed entry");
+        const auto& kv = std::get<Expr::List>(e->v);
+        if (kv.size() < 2) throw std::runtime_error(ctx + ": malformed entry");
+        double te = as_scalar(kv[0]);
+        if (!initialized || te <= t) {
+            payload = kv[1];
+            initialized = true;
+        } else {
+            break;
+        }
+    }
+    if (!initialized) throw std::runtime_error(ctx + ": could not evaluate schedule");
+    return payload;
+}
+
+static int choose_midi_from_chord(const Vector& chord, int lo_oct, int hi_oct, int rand_oct) {
+    if (chord.size() == 0) throw std::runtime_error("orchgran: active chord is empty");
+    std::uniform_int_distribution<int> ndist(0, (int)chord.size() - 1);
+    int src = (int)std::lround(chord[(std::size_t)ndist(rng())]);
+    int pc = ((src % 12) + 12) % 12;
+
+    std::uniform_int_distribution<int> odist(lo_oct, hi_oct);
+    int oct = odist(rng());
+
+    if (rand_oct > 0) {
+        std::uniform_int_distribution<int> rdist(-rand_oct, rand_oct);
+        oct += rdist(rng());
+    }
+    return 12 * (oct + 1) + pc;
+}
+
+static std::string choose_string_from_list(const ExprPtr& xs, const std::string& ctx) {
+    if (!is_list(xs)) throw std::runtime_error(ctx + ": expected a list");
+    const auto& ls = std::get<Expr::List>(xs->v);
+    if (ls.empty()) throw std::runtime_error(ctx + ": empty list");
+    std::uniform_int_distribution<int> dist(0, (int)ls.size() - 1);
+    const auto& item = ls[(std::size_t)dist(rng())];
+    if (!(is_string(item) || is_symbol(item)))
+        throw std::runtime_error(ctx + ": expected strings or symbols");
+    return to_string_value(item);
+}
+
+static ExprPtr find_best_sample(const std::vector<ExprPtr>& db,
+                                const std::string& instrument,
+                                const std::string& style,
+                                const std::string& dynamic,
+                                int midi) {
+    std::vector<ExprPtr> xs = filter_exact(db, "instrument", instrument);
+    if (xs.empty()) return make_list({});
+
+    std::vector<ExprPtr> strict = filter_exact(xs, "articulation", style);
+    strict = filter_exact(strict, "dynamic", dynamic);
+
+    std::vector<ExprPtr> no_dyn = filter_exact(xs, "articulation", style);
+    std::vector<ExprPtr> no_style = filter_exact(xs, "dynamic", dynamic);
+
+    std::vector<ExprPtr> pool;
+    if (!strict.empty()) pool = strict;
+    else if (!no_dyn.empty()) pool = no_dyn;
+    else if (!no_style.empty()) pool = no_style;
+    else pool = xs;
+
+    if (pool.empty()) return make_list({});
+
+    int best_dist = std::numeric_limits<int>::max();
+    ExprPtr best = pool.front();
+    for (const auto& e : pool) {
+        int m = entry_get_int(e, "midi");
+        int d = std::abs(m - midi);
+        if (d < best_dist) {
+            best_dist = d;
+            best = e;
+        }
+    }
+    return best;
+}
+
+static Vector fadeout_to_length(const Vector& x, std::size_t new_len) {
+    if (new_len >= x.size()) return x;
+    if (new_len == 0) return Vector(0.0, 0);
+
+    Vector y(new_len);
+    for (std::size_t i = 0; i < new_len; ++i) y[i] = x[i];
+
+    std::size_t fade = std::min<std::size_t>(std::max<std::size_t>(32, new_len / 8), new_len);
+    std::size_t start = new_len - fade;
+    for (std::size_t i = 0; i < fade; ++i) {
+        double g = 1.0 - (double)i / (double)std::max<std::size_t>(1, fade - 1);
+        y[start + i] *= g;
+    }
+    return y;
+}
+
+static ExprPtr make_event(double t,
+                          double requested_len,
+                          int midi,
+                          const std::string& style,
+                          const std::string& dynamic,
+                          const std::vector<std::string>& instruments,
+                          const std::vector<std::string>& paths) {
+    Expr::List out;
+
+    Expr::List insts;
+    for (const auto& s : instruments) insts.push_back(make_string(s));
+
+    Expr::List pths;
+    for (const auto& s : paths) pths.push_back(make_string(s));
+
+    out.push_back(kv("time",        make_scalar(t)));
+    out.push_back(kv("length",      make_scalar(requested_len)));
+    out.push_back(kv("midi",        make_scalar((double)midi)));
+    out.push_back(kv("style",       make_string(style)));
+    out.push_back(kv("dynamic",     make_string(dynamic)));
+    out.push_back(kv("instruments", make_list(insts)));
+    out.push_back(kv("paths",       make_list(pths)));
+
+    return make_list(out);
+}
+
+static Proc fn_orchgran() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 13) {
+            throw std::runtime_error(
+                "orchgran expects: sr total_dur orchestra "
+                "density_curve rand_density_curve length_curve rand_length_curve "
+                "octave_range_curve rand_octave_curve "
+                "chord_schedule style_schedule dynamic_schedule db"
+            );
+        }
+
+        double sr = as_scalar(args[0]);
+        double total_dur = as_scalar(args[1]);
+        if (sr <= 0.0 || total_dur <= 0.0)
+            throw std::runtime_error("orchgran: sr and total_dur must be > 0");
+
+        std::vector<std::vector<std::string>> voices = parse_orchestra(args[2]);
+        if (voices.empty()) throw std::runtime_error("orchgran: empty orchestra");
+
+        const ExprPtr& density_curve      = args[3];
+        const ExprPtr& rand_density_curve = args[4];
+        const ExprPtr& length_curve       = args[5];
+        const ExprPtr& rand_length_curve  = args[6];
+        const ExprPtr& octave_curve       = args[7];
+        const ExprPtr& rand_oct_curve     = args[8];
+        const ExprPtr& chord_sched        = args[9];
+        const ExprPtr& style_sched        = args[10];
+        const ExprPtr& dyn_sched          = args[11];
+        std::vector<ExprPtr> db           = db_entries(args[12]);
+
+        std::vector<double> free_until(voices.size(), 0.0);
+        std::unordered_map<std::string, Vector> cache;
+        std::vector<std::pair<int, Vector>> audio_events;
+        Expr::List event_log;
+
+        double t = 0.0;
+        while (t < total_dur) {
+            double dens = eval_scalar_curve(density_curve, t, "density");
+            double rdens = eval_scalar_curve(rand_density_curve, t, "random-density");
+            double glen = eval_scalar_curve(length_curve, t, "length");
+            double rglen = eval_scalar_curve(rand_length_curve, t, "random-length");
+            std::pair<int, int> oct_rng = eval_octave_curve(octave_curve, t);
+            int rand_oct = std::max(0, (int)std::lround(eval_scalar_curve(rand_oct_curve, t, "random-octave")));
+
+            if (dens <= 0.0) throw std::runtime_error("orchgran: density must stay > 0");
+
+            double dens_factor = 1.0 + urand(-rdens, rdens);
+            if (dens_factor <= 0.001) dens_factor = 0.001;
+            double dt = 1.0 / (dens * dens_factor);
+
+            int chosen_voice = -1;
+            for (std::size_t i = 0; i < voices.size(); ++i) {
+                if (free_until[i] <= t) {
+                    chosen_voice = (int)i;
+                    break;
+                }
+            }
+
+            if (chosen_voice >= 0) {
+                double len_factor = 1.0 + urand(-rglen, rglen); 
+                if (len_factor <= 0.05) len_factor = 0.05;
+                double requested_len = glen * len_factor;
+
+                Vector chord = as_vec(eval_payload_schedule(chord_sched, t, "chord-schedule"));
+                std::string style = choose_string_from_list(
+                    eval_payload_schedule(style_sched, t, "style-schedule"),
+                    "style-schedule"
+                );
+                std::string dyn = choose_string_from_list(
+                    eval_payload_schedule(dyn_sched, t, "dynamic-schedule"),
+                    "dynamic-schedule"
+                );
+
+                int midi = choose_midi_from_chord(chord, oct_rng.first, oct_rng.second, rand_oct);
+
+                std::vector<std::pair<int, Vector>> local;
+                std::vector<std::string> paths_used;
+
+                for (const auto& instr : voices[(std::size_t)chosen_voice]) {
+                    ExprPtr entry = find_best_sample(db, instr, style, dyn, midi);
+                    if (!is_list(entry) || std::get<Expr::List>(entry->v).empty()) continue;
+
+                    std::string path = entry_get_string(entry, "path");
+                    paths_used.push_back(path);
+
+                    auto it = cache.find(path);
+                    if (it == cache.end()) {
+                        cache[path] = extract_db_signal(entry, (int)std::lround(sr));
+                        it = cache.find(path);
+                    }
+
+                    Vector sig = it->second;
+                    std::size_t requested_samps =
+                        (std::size_t)std::max<double>(0.0, std::llround(requested_len * sr));
+                    if (requested_samps < sig.size()) sig = fadeout_to_length(sig, requested_samps);
+
+                    local.push_back({(int)std::llround(t * sr), sig});
+                }
+
+                if (!local.empty()) {
+                    for (const auto& ev : local) audio_events.push_back(ev);
+                    event_log.push_back(make_event(
+                        t,
+                        requested_len,
+                        midi,
+                        style,
+                        dyn,
+                        voices[(std::size_t)chosen_voice],
+                        paths_used
+                    ));
+                    free_until[(std::size_t)chosen_voice] = t + requested_len;
+                }
+            }
+
+            t += dt;
+        }
+
+        Vector sig = mix_overlay(audio_events);
+
+        Expr::List out;
+        out.push_back(make_vec(sig));
+        out.push_back(make_list(event_log));
+        return make_list(out);
+    };
+}
+
+static Proc fn_orchgran_signal() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 1 || !is_list(args[0]))
+            throw std::runtime_error("orchgran-signal expects: orchgran-result");
+        const auto& xs = std::get<Expr::List>(args[0]->v);
+        if (xs.size() != 2) throw std::runtime_error("orchgran-signal: malformed result");
+        return xs[0];
+    };
+}
+
+static Proc fn_orchgran_events() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 1 || !is_list(args[0]))
+            throw std::runtime_error("orchgran-events expects: orchgran-result");
+        const auto& xs = std::get<Expr::List>(args[0]->v);
+        if (xs.size() != 2) throw std::runtime_error("orchgran-events: malformed result");
+        return xs[1];
+    };
+}
+
+static Proc fn_orchgran_saveevents() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 2 || !is_string(args[1]))
+            throw std::runtime_error("orchgran-saveevents expects: events path");
+        std::ofstream out(as_string(args[1]));
+        if (!out) throw std::runtime_error("orchgran-saveevents: cannot open output file");
+        out << repr(args[0]);
+        return args[0];
     };
 }
 
@@ -912,6 +1281,10 @@ static void add_samplesynth(std::shared_ptr<Env> env) {
     env->set("sol-randpat",     make_proc(fn_sol_randpat()));
     env->set("sol-patnotes",    make_proc(fn_sol_patnotes()));
     env->set("sol-arp",         make_proc(fn_sol_arp()));
+    env->set("orchgran",            make_proc(fn_orchgran()));
+    env->set("orchgran-signal",     make_proc(fn_orchgran_signal()));
+    env->set("orchgran-events",     make_proc(fn_orchgran_events()));
+    env->set("orchgran-saveevents", make_proc(fn_orchgran_saveevents()));    
 }
 
 // eof

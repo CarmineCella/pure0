@@ -1,0 +1,21 @@
+Orchestral granulator
+
+The tools takes as input a list of instruments (the "orchestra") that will represent the polyphony of the granulator: the granulator will only trigger event when a "instrument" is free, that is is not playing.
+The user can specify evolution in times of the following parameters
+density (in events per second)
+random density (relative to density)
+length (in seconds)
+random length (relative to lengths)
+octave range
+random octave range
+
+the the user will also specify also:
+a set of "chords" and timed positions where you should adopt those chords in time
+a set of groups of playing styles, similarly
+a set of groups of dynamics, similarly
+
+when the granulator will need a new grain, it will look for the first free instrument and choose duration, pitch, dyanmic and playing style according to the running parameters
+
+the granulator will "keep track of the parameters" in term of entry point, length, instrument, note, playing style and dynamic and will save it in a list of events that can be then saved
+
+If the orchestra is speficied like ["Ob" "Fl"] then the two instruments will be independent. However if the orchestra is specificed as [["Ob" "Fl"] ["Vn"]] then oboe and flute will be synchronized and will be triggered at the same time with the same length. If the generated length is shorter than the length of the sample, the sample will be faded out to the specified lenght; if it's longer then nothing will happen (the whole sample will be used till its end)
