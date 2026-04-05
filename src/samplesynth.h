@@ -242,13 +242,6 @@ static int beat_to_samples(double sr, double bpm, double beats) {
     return (int)std::llround((60.0 * beats * sr) / bpm);
 }
 
-static std::vector<int> active_steps(const Vector& pattern) {
-    std::vector<int> steps;
-    for (std::size_t i = 0; i < pattern.size(); ++i) {
-        if (pattern[i] != 0.0) steps.push_back((int)i);
-    }
-    return steps;
-}
 
 static Vector mono_fold(const Vector& interleaved, int nch) {
     if (nch <= 1) return interleaved;
@@ -347,6 +340,25 @@ static Vector load_mono_resampled(const std::string& path, int target_sr = 0) {
     return sig;
 }
 
+static Vector fit_sample_to_length(const Vector& x, std::size_t new_len) {
+    if (new_len >= x.size()) return x;
+    if (new_len == 0) return Vector(0.0, 0);
+
+    Vector y(new_len);
+    for (std::size_t i = 0; i < new_len; ++i) y[i] = x[i];
+
+    const std::size_t fade = std::min<std::size_t>(
+        std::max<std::size_t>(32, new_len / 8),
+        new_len
+    );
+    const std::size_t start = new_len - fade;
+    for (std::size_t i = 0; i < fade; ++i) {
+        const double g = 1.0 - (double)i / (double)std::max<std::size_t>(1, fade - 1);
+        y[start + i] *= g;
+    }
+    return y;
+}
+
 static Vector extract_db_signal(const ExprPtr& x, int target_sr = 0) {
     if (is_string(x)) return load_mono_resampled(as_string(x), target_sr);
     if (is_list(x) && entry_has_key(x, "path")) {
@@ -373,9 +385,6 @@ static std::vector<ExprPtr> filter_exact(const std::vector<ExprPtr>& xs,
     return out;
 }
 
-static ExprPtr list_from_vector(const std::vector<ExprPtr>& xs) {
-    return make_list(Expr::List(xs.begin(), xs.end()));
-}
 
 static ExprPtr choose_random(const std::vector<ExprPtr>& xs) {
     if (xs.empty()) return make_list({});
@@ -626,7 +635,7 @@ static Proc fn_trim_sample() {
 
 static Proc fn_fadeout_sample() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 2) throw std::runtime_error("sample-fadeout expects: sig n");
+        if (args.size() != 2) throw std::runtime_error("sample-fade expects: sig n");
         Vector x = as_vec(args[0]);
         int n = std::max(0, (int)std::lround(as_scalar(args[1])));
         if (n == 0 || x.size() == 0) return make_vec(x);
@@ -663,6 +672,7 @@ static Proc fn_pick() {
 // primitives: sequencing
 // -----------------------------------------------------------------------------
 
+
 static Proc fn_sample_pat() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 5)
@@ -680,7 +690,7 @@ static Proc fn_sample_pat() {
         std::vector<std::pair<int, Vector>> events;
         for (std::size_t i = 0; i < pattern.size(); ++i) {
             if (pattern[i] == 0.0) continue;
-            Vector s = sig;
+            Vector s = fit_sample_to_length(sig, (std::size_t)step_len);
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -689,6 +699,8 @@ static Proc fn_sample_pat() {
         return make_vec(mix_overlay(events));
     };
 }
+
+
 
 static Proc fn_sample_seq() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
@@ -716,7 +728,10 @@ static Proc fn_sample_seq() {
             }
             while (which < 0) which += (int)bank.size();
             which %= (int)bank.size();
+
             Vector s = extract_db_signal(bank[(std::size_t)which], (int)std::lround(sr));
+            s = fit_sample_to_length(s, (std::size_t)step_len);
+
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -726,6 +741,7 @@ static Proc fn_sample_seq() {
         return make_vec(mix_overlay(events));
     };
 }
+
 
 static Proc fn_sol_note() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
@@ -754,6 +770,7 @@ static Proc fn_sol_note() {
     };
 }
 
+
 static Proc fn_sol_pat() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 8)
@@ -777,6 +794,7 @@ static Proc fn_sol_pat() {
             if (pattern[i] == 0.0) continue;
             ExprPtr e = choose_random(xs);
             Vector s = extract_db_signal(e, (int)std::lround(sr));
+            s = fit_sample_to_length(s, (std::size_t)step_len);
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -786,9 +804,11 @@ static Proc fn_sol_pat() {
     };
 }
 
+
 static Proc fn_sol_randpat() {
     return fn_sol_pat();
 }
+
 
 static Proc fn_sol_patnotes() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
@@ -827,6 +847,7 @@ static Proc fn_sol_patnotes() {
             }
 
             Vector s = extract_db_signal(best, (int)std::lround(sr));
+            s = fit_sample_to_length(s, (std::size_t)step_len);
             if (pattern[i] != 1.0) {
                 for (std::size_t j = 0; j < s.size(); ++j) s[j] *= pattern[i];
             }
@@ -837,6 +858,8 @@ static Proc fn_sol_patnotes() {
         return make_vec(mix_overlay(events));
     };
 }
+
+
 
 static Proc fn_sol_arp() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
@@ -882,12 +905,15 @@ static Proc fn_sol_arp() {
                     best = e;
                 }
             }
-            events.push_back({i * event_step, extract_db_signal(best, (int)std::lround(sr))});
+            Vector s = extract_db_signal(best, (int)std::lround(sr));
+            s = fit_sample_to_length(s, (std::size_t)event_step);
+            events.push_back({i * event_step, s});
         }
 
         return make_vec(mix_overlay(events));
     };
 }
+
 
 
 static std::vector<std::vector<std::string>> parse_orchestra(const ExprPtr& orchestra) {
@@ -1053,22 +1079,6 @@ static ExprPtr find_best_sample(const std::vector<ExprPtr>& db,
     return best;
 }
 
-static Vector fadeout_to_length(const Vector& x, std::size_t new_len) {
-    if (new_len >= x.size()) return x;
-    if (new_len == 0) return Vector(0.0, 0);
-
-    Vector y(new_len);
-    for (std::size_t i = 0; i < new_len; ++i) y[i] = x[i];
-
-    std::size_t fade = std::min<std::size_t>(std::max<std::size_t>(32, new_len / 8), new_len);
-    std::size_t start = new_len - fade;
-    for (std::size_t i = 0; i < fade; ++i) {
-        double g = 1.0 - (double)i / (double)std::max<std::size_t>(1, fade - 1);
-        y[start + i] *= g;
-    }
-    return y;
-}
-
 static ExprPtr make_event(double t,
                           double requested_len,
                           int midi,
@@ -1189,7 +1199,7 @@ static Proc fn_orchgran() {
                     Vector sig = it->second;
                     std::size_t requested_samps =
                         (std::size_t)std::max<double>(0.0, std::llround(requested_len * sr));
-                    if (requested_samps < sig.size()) sig = fadeout_to_length(sig, requested_samps);
+                    if (requested_samps < sig.size()) sig = fit_sample_to_length(sig, requested_samps);
 
                     local.push_back({(int)std::llround(t * sr), sig});
                 }
@@ -1271,6 +1281,7 @@ static void add_samplesynth(std::shared_ptr<Env> env) {
     env->set("sample",          make_proc(fn_sample()));
     env->set("sample-reverse",  make_proc(fn_reverse_sample()));
     env->set("sample-trim",     make_proc(fn_trim_sample()));
+    env->set("sample-fade",     make_proc(fn_fadeout_sample()));
     env->set("sample-fadeout",  make_proc(fn_fadeout_sample()));
     env->set("bank",            make_proc(fn_bank()));
     env->set("pick",            make_proc(fn_pick()));
