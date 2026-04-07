@@ -75,6 +75,7 @@ install(TARGETS pure0
 install(FILES
     ${CMAKE_SOURCE_DIR}/src/stdlib.scm
     ${CMAKE_SOURCE_DIR}/src/dsp.scm
+    ${CMAKE_SOURCE_DIR}/src/sampsynth.scm
     DESTINATION $ENV{HOME}/.pure0
 )
 

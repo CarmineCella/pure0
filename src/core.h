@@ -260,13 +260,13 @@ static ExprPtr eval(ExprPtr expr, std::shared_ptr<Env> env) {
                 return xs[1];
             }
             if (head == "def") {
-                if (xs.size() != 3 || !is_symbol(xs[1])) throw std::runtime_error("bad def");
+                if (xs.size() != 3 || !is_symbol(xs[1])) throw std::runtime_error("syntax error in def");
                 auto value = eval(xs[2], env);
                 env->set(as_symbol(xs[1]), value);
                 return value;
             }
             if (head == "lambda") {
-                if (xs.size() < 3 || !is_list(xs[1])) throw std::runtime_error("bad lambda");
+                if (xs.size() < 3 || !is_list(xs[1])) throw std::runtime_error("syntax error in lambda");
                 std::vector<std::string> ps;
                 for (const auto& p : std::get<Expr::List>(xs[1]->v)) {
                     if (!is_symbol(p)) throw std::runtime_error("lambda params must be symbols");
@@ -596,7 +596,7 @@ static Vector repeat_to(const Vector& x, std::size_t n) {
 static Proc fn_take() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2)
-            throw std::runtime_error("take expects: vector n");
+            throw std::runtime_error("take expects a vector n");
         Vector x = as_vec(args[0]);
         std::size_t n = (std::size_t)std::max(0.0, as_scalar(args[1]));
         return make_vec(take(x, n));
@@ -606,7 +606,7 @@ static Proc fn_take() {
 static Proc fn_repeat() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2)
-            throw std::runtime_error("repeat expects: vector n");
+            throw std::runtime_error("repeat expects a vector n");
         Vector x = as_vec(args[0]);
         std::size_t n = (std::size_t)std::max(0.0, as_scalar(args[1]));
         return make_vec(repeat_to(x, n));
@@ -727,7 +727,7 @@ static Proc fn_num() {
         const std::string& s = as_string(args[0]);
         char* end = nullptr;
         double v = std::strtod(s.c_str(), &end);
-        if (end == s.c_str() || *end != '\0') throw std::runtime_error("num: cannot parse \"" + s + "\"");
+        if (end == s.c_str() || *end != '\0') throw std::runtime_error("num cannot parse \"" + s + "\"");
         return make_scalar(v);
     };
 }
@@ -748,7 +748,7 @@ static Proc fn_exec() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1 || !is_string(args[0])) throw std::runtime_error("exec expects 1 string arg");
         FILE* p = popen(as_string(args[0]).c_str(), "r");
-        if (!p) throw std::runtime_error("exec: popen failed");
+        if (!p) throw std::runtime_error("exec failed");
         std::string result;
         char buf[256];
         while (fgets(buf, sizeof(buf), p)) result += buf;

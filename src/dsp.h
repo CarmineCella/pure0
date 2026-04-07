@@ -193,7 +193,73 @@ static Proc fn_osc() {
         return make_vec(out);
     };
 }
+static Proc fn_phasor() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 2)
+            throw std::runtime_error("phasor expects: sr freq");
+        double sr = as_scalar(args[0]);
+        if (sr <= 0.0) throw std::runtime_error("phasor: sr must be > 0");
+        Vector freqs = as_vec(args[1]);
+        Vector out(freqs.size());
+        double phi = 0.0;
+        for (std::size_t i = 0; i < freqs.size(); ++i) {
+            out[i] = phi;
+            phi += freqs[i] / sr;
+            while (phi >= 1.0) phi -= 1.0;
+            while (phi <  0.0) phi += 1.0;
+        }
+        return make_vec(out);
+    };
+}
+static Proc fn_bpf() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 3 || (args.size() % 2) == 0) {
+            throw std::runtime_error("bpf expects x y pairs and phase signal as last arg");
+        }
 
+        Vector phase = as_vec(args.back());
+
+        std::vector<double> pts;
+        pts.reserve(args.size() - 1);
+        for (std::size_t i = 0; i + 1 < args.size(); ++i) {
+            pts.push_back(as_scalar(args[i]));
+        }
+
+        if (pts.size() < 4) {
+            throw std::runtime_error("bpf needs at least 2 points");
+        }
+
+        Vector out(phase.size());
+
+        for (std::size_t k = 0; k < phase.size(); ++k) {
+            double ph = phase[k];
+            double y = pts[1];
+
+            if (ph <= pts[0]) {
+                y = pts[1];
+            } else if (ph >= pts[pts.size() - 2]) {
+                y = pts[pts.size() - 1];
+            } else {
+                for (std::size_t i = 0; i + 3 < pts.size(); i += 2) {
+                    double x0 = pts[i];
+                    double y0 = pts[i + 1];
+                    double x1 = pts[i + 2];
+                    double y1 = pts[i + 3];
+
+                    if (ph >= x0 && ph <= x1) {
+                        double u = (x1 > x0) ? ((ph - x0) / (x1 - x0)) : 0.0;
+                        y = y0 + (y1 - y0) * u;
+                        break;
+                    }
+                }
+            }
+
+            out[k] = y;
+        }
+
+        return make_vec(out);
+    };
+}
 // (fft sig) → interleaved complex vector [re0 im0 re1 im1 ...]
 // Zero-pads to next power of 2. Spectrum length = 2 * next_pow2(len(sig)).
 static Proc fn_fft() {
@@ -807,6 +873,8 @@ static Proc fn_oscbank() {
 static void add_dsp(std::shared_ptr<Env> env) {
     env->set("gen",          make_proc(fn_gen()));
     env->set("osc",          make_proc(fn_osc()));
+    env->set("phasor",       make_proc(fn_phasor()));
+    env->set ("bpf",         make_proc(fn_bpf()));
     env->set("fft",          make_proc(fn_fft()));
     env->set("ifft",         make_proc(fn_ifft()));
     env->set("car2pol",      make_proc(fn_car2pol()));

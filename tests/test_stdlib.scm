@@ -105,5 +105,20 @@
 (assert "null string"    (= (null? "") 1))
 (assert "null vec"       (= (null? (vec)) 1))
 
+
+; ── assoc / unique / field-values helpers ────────────────────────────────────
+(def al '((name "oboe") (dyn "ff") (pitch "A#3")))
+(assert "assoc key" (= (head (assoc 'dyn al)) 'dyn))
+(assert "assoc val" (= (second (assoc 'dyn al)) "ff"))
+(assert "third helper" (= (third '(10 20 30 40)) 30))
+(assert "sort-strings identity len" (= (len (sort-strings '("b" "a" "b"))) 3))
+(assert "uniq-sorted len" (= (len (uniq-sorted '("b" "a" "b"))) 2))
+(assert "sort-uniq len" (= (len (sort-uniq '("ob" "cl" "ob" "fl"))) 3))
+(def entries '(((instrument "ob") (pitch "A#3"))
+               ((instrument "cl") (pitch "B3"))
+               ((instrument "ob") (pitch "C4"))))
+(assert "field-values len" (= (len (field-values entries 'instrument)) 3))
+(assert "field-values first" (= (head (field-values entries 'instrument)) "ob"))
+
 (print "")
 (print "all tests passed")

@@ -19,6 +19,42 @@
 (def iterate  (lambda (f n x)
   (if (= n 0) x (iterate f (- n 1) (f x)))))
 
+
+; ── alist / generic collection helpers ───────────────────────────────────────
+
+(def assoc (lambda (key alist)
+  (if (null? alist)
+      '()
+      (if (= (head (head alist)) key)
+          (head alist)
+          (assoc key (tail alist))))))
+
+(def second (lambda (xs) (nth xs 1)))
+(def third  (lambda (xs) (nth xs 2)))
+
+(def insert-sorted (lambda (x ys)
+  ; order-preserving insertion fallback: without a generic string ordering
+  ; primitive in core, we append at the end.
+  (append ys (list x))))
+
+(def sort-strings (lambda (xs)
+  ; stable identity placeholder until core provides generic string ordering.
+  xs))
+
+(def uniq-sorted (lambda (xs)
+  (def go (lambda (rest acc)
+    (if (null? rest) (reverse acc)
+      (if (member? (head rest) acc)
+          (go (tail rest) acc)
+          (go (tail rest) (cons (head rest) acc))))))
+  (go xs '())))
+
+(def sort-uniq (lambda (xs)
+  (uniq-sorted (sort-strings xs))))
+
+(def field-values (lambda (xs key)
+  (map (lambda (e) (second (assoc key e))) xs)))
+
 ; ── list construction ─────────────────────────────────────────────────────────
 
 (def iota (lambda (n)
@@ -37,9 +73,6 @@
   (go n '())))
 
 ; ── list access ───────────────────────────────────────────────────────────────
-
-(def second (lambda (xs) (head (tail xs))))
-(def third  (lambda (xs) (head (tail (tail xs)))))
 
 (def last (lambda (xs)
   (if (null? (tail xs)) (head xs) (last (tail xs)))))
