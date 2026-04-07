@@ -7,7 +7,8 @@
 //
 // Call add_dsp(env) from main after make_environment().
 
-#pragma once
+#ifndef DSP_H
+#define DSP_H
 
 #include <algorithm>
 #include <cmath>
@@ -601,6 +602,25 @@ static Proc fn_gen() {
     };
 }
 
+static Vector stereo_interleave(const Vector& left, const Vector& right) {
+    std::size_t n = std::max<std::size_t>(left.size(), right.size());
+    Vector l = broadcast(left, n);
+    Vector r = broadcast(right, n);
+    Vector out(n * 2);
+    for (std::size_t i = 0; i < n; ++i) {
+        out[2 * i] = l[i];
+        out[2 * i + 1] = r[i];
+    }
+    return out;
+}
+
+static Proc fn_stereo() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 2) throw std::runtime_error("stereo expects: left right");
+        return make_vec(stereo_interleave(as_vec(args[0]), as_vec(args[1])));
+    };
+}
+
 // ── registration ──────────────────────────────────────────────────────────────
 
 static void add_dsp(std::shared_ptr<Env> env) {
@@ -622,6 +642,9 @@ static void add_dsp(std::shared_ptr<Env> env) {
     env->set("wavread",      make_proc(fn_wavread()));
     env->set("wavwrite",     make_proc(fn_wavwrite()));
     env->set("mix",          make_proc(fn_mix()));
+    env->set("stereo",      make_proc(fn_stereo()));    
 }
+
+#endif // DSP_H
 
 // eof

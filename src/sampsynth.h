@@ -1,6 +1,3 @@
-
-#pragma once
-
 // samplesynth.h — orchestral sample database and sequencing layer for pure0
 //
 // Designed for SOL-style libraries whose filenames follow:
@@ -16,6 +13,9 @@
 //
 // Registration:
 //     add_samplesynth(env);
+
+#ifndef SAMPLESYNTH_H
+#define SAMPLESYNTH_H
 
 #include "core.h"
 #include "dsp.h"
@@ -1244,7 +1244,7 @@ static Proc fn_orchgran_saveevents() {
 // registration
 // -----------------------------------------------------------------------------
 
-static void add_samplesynth(std::shared_ptr<Env> env) {
+static void add_sampsynth(std::shared_ptr<Env> env) {
     env->set("loaddb",          make_proc(fn_loaddb()));
     env->set("savedb",          make_proc(fn_savedb()));
     env->set("readdb",          make_proc(fn_readdb()));
@@ -1274,5 +1274,8 @@ static void add_samplesynth(std::shared_ptr<Env> env) {
     env->set("inst-gran-events",     make_proc(fn_orchgran_events()));
     env->set("inst-gran-saveevents", make_proc(fn_orchgran_saveevents()));    
 }
+
+#endif // SAMPLESYNTH_H
+
 
 // eof

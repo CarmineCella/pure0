@@ -1,20 +1,20 @@
 // pure0.cpp - C++17
 //
-// a micro language
+// a micro language for algorithmic composition and DSP prototyping, with a built-in orchestral sample database.
 // Copyright (c) 2026 - 2030 Carmine-Emanuele Cella. All rights reserved.
 // Use of this source code is governed by a BSD-style 2
 
 #include "core.h"
 #include "dsp.h"
-#include "music.h"
-#include "samplesynth.h"
+#include "beats.h"
+#include "sampsynth.h"
 
 int main(int argc, char** argv) {
     srand(static_cast<unsigned int>(std::time(nullptr)));
     auto env = make_environment();
     add_dsp(env);
-    add_music(env);
-    add_samplesynth(env);
+    add_beats(env);
+    add_sampsynth(env);
 
     try {
         if (argc > 1) {

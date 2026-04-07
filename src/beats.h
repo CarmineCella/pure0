@@ -1,5 +1,5 @@
-#ifndef MUSIC_H
-#define MUSIC_H
+#ifndef BEATS_H
+#define BEATS_H
 
 #include "core.h"
 #include "dsp.h"
@@ -58,17 +58,6 @@ static Vector impulse(std::size_t n, std::size_t pos, double amp = 1.0) {
     return r;
 }
 
-static Vector line(std::size_t n, double a, double b) {
-    if (n == 0) return Vector(0.0, 0);
-    if (n == 1) return Vector(a, 1);
-    Vector r(n);
-    for (std::size_t i = 0; i < n; ++i) {
-        double t = (double)i / (double)(n - 1);
-        r[i] = a + (b - a) * t;
-    }
-    return r;
-}
-
 static double mtof_scalar(double midi) {
     return 440.0 * std::pow(2.0, (midi - 69.0) / 12.0);
 }
@@ -92,32 +81,24 @@ static Vector cos_env(std::size_t n) {
     return w;
 }
 
-static Vector normalize(const Vector& x, double peak = 1.0) {
-    double mx = 0.0;
-    for (std::size_t i = 0; i < x.size(); ++i) mx = std::max(mx, std::abs(x[i]));
-    if (mx <= 0.0) return x;
-    return x * (peak / mx);
-}
-
-static std::vector<double> as_number_list(const ExprPtr& x) {
-    std::vector<double> out;
+static std::vector<double> as_float_vector(const ExprPtr& x) {
     if (is_list(x)) {
         const auto& xs = std::get<Expr::List>(x->v);
-        out.reserve(xs.size());
+        std::vector<double> out(xs.size());
         for (const auto& e : xs) out.push_back(as_scalar(e));
         return out;
     }
     if (is_vec(x)) {
         Vector v = as_vec(x);
-        out.reserve(v.size());
-        for (std::size_t i = 0; i < v.size(); ++i) out.push_back(v[i]);
+        std::vector<double> out(v.size());
+        for (std::size_t i = 0; i < v.size(); ++i) out[i] = v[i];
         return out;
     }
     throw std::runtime_error("expected list or vector of numbers");
 }
 
-static std::vector<int> as_int_list(const ExprPtr& x) {
-    std::vector<double> tmp = as_number_list(x);
+static std::vector<int> as_int_vector(const ExprPtr& x) {
+    std::vector<double> tmp = as_float_vector(x);
     std::vector<int> out(tmp.size());
     for (std::size_t i = 0; i < tmp.size(); ++i) out[i] = (int)std::floor(tmp[i]);
     return out;
@@ -469,18 +450,6 @@ static Vector bass_sub(double sr, double hz, double dur, double amp, double wobb
     return normalize(sig * amp, 1.0);
 }
 
-static Vector stereo_interleave(const Vector& left, const Vector& right) {
-    std::size_t n = std::max<std::size_t>(left.size(), right.size());
-    Vector l = broadcast(left, n);
-    Vector r = broadcast(right, n);
-    Vector out(n * 2);
-    for (std::size_t i = 0; i < n; ++i) {
-        out[2 * i] = l[i];
-        out[2 * i + 1] = r[i];
-    }
-    return out;
-}
-
 static Vector pat(double sr, double bpm, double beats, const std::vector<double>& pattern, const Vector& event) {
     int total = beat_samples(sr, bpm, beats);
     if (total <= 0) return Vector(0.0, 0);
@@ -622,7 +591,7 @@ static Proc fn_seq() {
 static Proc fn_hold() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2) throw std::runtime_error("hold expects: pattern seglen");
-        std::vector<double> vals = as_number_list(args[0]);
+        std::vector<double> vals = as_float_vector(args[0]);
         std::size_t seglen = (std::size_t)std::max(0.0, as_scalar(args[1]));
         return make_vec(hold_values(vals, seglen));
     };
@@ -695,7 +664,7 @@ static Proc fn_steps() {
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
         double amp = (args.size() == 5) ? as_scalar(args[4]) : 1.0;
-        std::vector<int> pat = as_int_list(args[3]);
+        std::vector<int> pat = as_int_vector(args[3]);
         int total = beat_samples(sr, bpm, beats);
         int step_samples = (pat.empty() ? total : std::max(1, iround((double)total / (double)pat.size())));
         return make_vec(trigger_train(total, step_samples, pat, amp));
@@ -907,7 +876,7 @@ static Proc fn_pat() {
         double sr = as_scalar(args[0]);
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
-        std::vector<double> pattern = as_number_list(args[3]);
+        std::vector<double> pattern = as_float_vector(args[3]);
         Vector event = as_vec(args[4]);
         return make_vec(pat(sr, bpm, beats, pattern, event));
     };
@@ -920,8 +889,8 @@ static Proc fn_patnotes() {
         double sr = as_scalar(args[0]);
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
-        std::vector<double> pattern = as_number_list(args[3]);
-        std::vector<double> notes = as_number_list(args[4]);
+        std::vector<double> pattern = as_float_vector(args[3]);
+        std::vector<double> notes = as_float_vector(args[4]);
         double note_beats = as_scalar(args[5]);
         double amp = as_scalar(args[6]);
         int shape = (args.size() == 8) ? (int)as_scalar(args[7]) : 0;
@@ -936,8 +905,8 @@ static Proc fn_bassline() {
         double sr = as_scalar(args[0]);
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
-        std::vector<double> pattern = as_number_list(args[3]);
-        std::vector<double> notes = as_number_list(args[4]);
+        std::vector<double> pattern = as_float_vector(args[3]);
+        std::vector<double> notes = as_float_vector(args[4]);
         double note_beats = as_scalar(args[5]);
         double amp = as_scalar(args[6]);
         double wobble_hz = (args.size() >= 8) ? as_scalar(args[7]) : 2.0;
@@ -953,7 +922,7 @@ static Proc fn_arp() {
         double sr = as_scalar(args[0]);
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
-        std::vector<double> notes = as_number_list(args[3]);
+        std::vector<double> notes = as_float_vector(args[3]);
         double subdiv = as_scalar(args[4]);
         double note_beats = as_scalar(args[5]);
         double amp = as_scalar(args[6]);
@@ -987,14 +956,7 @@ static Proc fn_chop() {
     };
 }
 
-static Proc fn_stereo() {
-    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 2) throw std::runtime_error("stereo expects: left right");
-        return make_vec(stereo_interleave(as_vec(args[0]), as_vec(args[1])));
-    };
-}
-
-static void add_music(std::shared_ptr<Env> env) {
+static void add_beats(std::shared_ptr<Env> env) {
     env->set("mtof",        make_proc(fn_mtof()));
     env->set("ftom",        make_proc(fn_ftom()));
     env->set("seq",         make_proc(fn_seq()));
@@ -1028,7 +990,6 @@ static void add_music(std::shared_ptr<Env> env) {
     env->set("gate",        make_proc(fn_gate()));
     env->set("norm",        make_proc(fn_norm()));
     env->set("chop",        make_proc(fn_chop()));
-    env->set("stereo",      make_proc(fn_stereo()));
 }
 
 #endif
