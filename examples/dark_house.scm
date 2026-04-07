@@ -36,7 +36,7 @@
 ; ----------------------------------------------------------------------------
 
 (def bed_a
-  (norm
+  (normalize
     (bmix sr bpm
       0 (drone_noise sr 55 16 0.14 0.05)
       0 (drone_reson sr 73 16 0.08 1.2 0.04)
@@ -44,7 +44,7 @@
     0.82))
 
 (def bed_b
-  (norm
+  (normalize
     (bmix sr bpm
       0 (drone_noise sr 49 16 0.15 0.07)
       0 (drone_reson sr 65 16 0.09 1.4 0.05)
@@ -52,7 +52,7 @@
     0.84))
 
 (def bed_c
-  (norm
+  (normalize
     (bmix sr bpm
       0 (drone_noise sr 43 16 0.16 0.08)
       0 (drone_reson sr 58 16 0.10 1.5 0.06)
@@ -60,7 +60,7 @@
     0.86))
 
 (def bed_d
-  (norm
+  (normalize
     (bmix sr bpm
       0 (drone_noise sr 41 16 0.17 0.09)
       0 (drone_reson sr 55 16 0.11 1.7 0.07)
@@ -73,7 +73,7 @@
 ; ----------------------------------------------------------------------------
 
 (def drums_a
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   1 0 0 0   1 0 0 0   1 0 0 0) kick_main)
       0 (pat sr bpm 4 (vec 0.6 0 0 0   0.5 0 0 0   0.6 0 0 0   0.5 0 0 0) kick_top)
@@ -82,7 +82,7 @@
     0.92))
 
 (def drums_b
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   1 0 0 0   1 0 0 0   1 0 0 0) kick_main)
       0 (pat sr bpm 4 (vec 0.7 0 0 0   0.4 0 0 0   0.7 0 0 0   0.4 0 0 0) kick_top)
@@ -91,7 +91,7 @@
     0.92))
 
 (def drums_c
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   1 0 0 0   1 0 0 0   1 0 0 0) kick_main)
       0 (pat sr bpm 4 (vec 0.5 0 0 0   0.5 0 0 0   0.8 0 0 0   0.5 0 0 0) kick_top)
@@ -100,7 +100,7 @@
     0.92))
 
 (def drums_d
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   1 0 0 0   1 0 0 0   1 0 0 0) kick_main)
       0 (pat sr bpm 4 (vec 0.6 0 0 0   0.6 0 0 0   0.6 0 0 0   0.8 0 0 0) kick_top)
@@ -153,14 +153,14 @@
 ; ----------------------------------------------------------------------------
 
 (def stabs_a
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (vec 1 0 0 0   0 0 0 0   0.6 0 0 0   0 0 0 0) (stab_minor sr 57 1.5 0.14 2))
       0 (pat sr bpm 8 (vec 0 0 0 0   1 0 0 0   0 0 0 0   0.5 0 0 0) (stab_minor sr 55 1.0 0.11 1)))
     0.74))
 
 (def stabs_b
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (vec 1 0 0 0   0.5 0 0 0   0 0 1 0   0 0 0 0) (stab_minor sr 53 1.0 0.12 2))
       0 (pat sr bpm 8 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0) (stab_minor sr 52 2.0 0.10 1)))
@@ -176,27 +176,27 @@
 ; ----------------------------------------------------------------------------
 
 (def sec_01
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_a)
     0.88))
 
 (def sec_02
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_a
       0 drums_a)
     0.90))
 
 (def sec_03
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_b
       0 drums_b)
     0.91))
 
 (def sec_04
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_b
       0 drums_b
@@ -205,7 +205,7 @@
     0.92))
 
 (def sec_05
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_c
       0 drums_c
@@ -214,7 +214,7 @@
     0.93))
 
 (def sec_06
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_c
       0 drums_c
@@ -223,7 +223,7 @@
     0.93))
 
 (def sec_07
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_d
       0 drums_d
@@ -233,7 +233,7 @@
     0.94))
 
 (def sec_08
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_d
       0 drums_d
@@ -243,7 +243,7 @@
     0.94))
 
 (def sec_09
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_c
       0 drums_b
@@ -254,7 +254,7 @@
     0.95))
 
 (def sec_10
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_b
       0 drums_a
@@ -265,7 +265,7 @@
     0.95))
 
 (def sec_11
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_a
       0 drums_c
@@ -274,7 +274,7 @@
     0.93))
 
 (def sec_12
-  (norm
+  (normalize
     (bmix sr bpm
       0 bed_d
       0 drums_d
@@ -288,7 +288,7 @@
 ; ----------------------------------------------------------------------------
 
 (def body
-  (norm
+  (normalize
     (bmix sr bpm
       0   sec_01
       8   sec_02
@@ -318,7 +318,7 @@
 ; ----------------------------------------------------------------------------
 
 (def left_side
-  (norm
+  (normalize
     (bmix sr bpm
       24  (drone_reson sr 92 10 0.03 1.6 0.18)
       64  (arp sr bpm 8 (vec 81 76 72 69) 10 0.08 0.026 2 1)
@@ -326,7 +326,7 @@
     0.30))
 
 (def right_side
-  (norm
+  (normalize
     (bmix sr bpm
       40  (drone_reson sr 98 10 0.03 1.8 0.21)
       88  (arp sr bpm 8 (vec 79 74 71 67) 12 0.07 0.026 1 2)
@@ -334,18 +334,18 @@
     0.30))
 
 (def left
-  (norm
+  (normalize
     (bmix sr bpm
       0 body
       0 left_side)
     0.95))
 
 (def right
-  (norm
+  (normalize
     (bmix sr bpm
       0 body
       0 right_side)
     0.95))
 
-(def piece (stereo left right))
+(def piece (interleave left right))
 (wavwrite piece sr "dark_house.wav" 2)

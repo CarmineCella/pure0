@@ -26,7 +26,7 @@
 ; ----------------------------------------------------------------------------
 
 (def dbar_a
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 0 1 0   1 0 0 0   0 1 0 0) k1)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 0 1 0) s1)
@@ -35,7 +35,7 @@
     0.92))
 
 (def dbar_b
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 1 0   0 0 1 0   1 0 0 0   1 0 0 0) k1)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 1 0 0   1 0 0 0   0 0 0 0) s1)
@@ -44,7 +44,7 @@
     0.92))
 
 (def dbar_c
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   1 0 0 0   1 0 1 0   0 0 0 0) k2)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   1 0 0 0) s2)
@@ -53,7 +53,7 @@
     0.92))
 
 (def dbar_d
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 1   0 0 1 0   1 0 0 1   0 0 0 0) k1)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 1 0   1 0 0 0   0 0 0 0) s2)
@@ -62,7 +62,7 @@
     0.92))
 
 (def dbar_e
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 1 0 0   1 0 0 1   0 1 0 0) k2)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 1 0 0) s1)
@@ -71,7 +71,7 @@
     0.92))
 
 (def dbar_f
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 1 0   1 0 0 0   1 0 0 0   0 0 1 0) k1)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0) s1)
@@ -80,7 +80,7 @@
     0.92))
 
 (def dbar_break
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 0 0 0   1 0 0 0   0 0 0 1) k1)
       0 (pat sr bpm 4 (euclid 7 16 1) h3))
@@ -168,7 +168,7 @@
 ; ----------------------------------------------------------------------------
 
 (def sec1
-  (norm
+  (normalize
     (bmix sr bpm
       0 dbar_a
       4 dbar_b
@@ -178,7 +178,7 @@
     0.93))
 
 (def sec2
-  (norm
+  (normalize
     (bmix sr bpm
       0 dbar_c
       4 dbar_d
@@ -188,7 +188,7 @@
     0.93))
 
 (def sec3
-  (norm
+  (normalize
     (bmix sr bpm
       0 dbar_e
       4 dbar_break
@@ -199,7 +199,7 @@
     0.93))
 
 (def sec4
-  (norm
+  (normalize
     (bmix sr bpm
       0 dbar_f
       4 dbar_b
@@ -209,7 +209,7 @@
     0.93))
 
 (def sec5
-  (norm
+  (normalize
     (bmix sr bpm
       0 dbar_break
       4 dbar_c
@@ -220,7 +220,7 @@
     0.93))
 
 (def sec6
-  (norm
+  (normalize
     (bmix sr bpm
       0 dbar_d
       4 dbar_e
@@ -230,7 +230,7 @@
     0.93))
 
 (def sec7
-  (norm
+  (normalize
     (bmix sr bpm
       0 dbar_a
       4 dbar_f
@@ -240,7 +240,7 @@
     0.93))
 
 (def sec8
-  (norm
+  (normalize
     (bmix sr bpm
       0 dbar_c
       4 dbar_break
@@ -256,7 +256,7 @@
 ; ----------------------------------------------------------------------------
 
 (def body
-  (norm
+  (normalize
     (bmix sr bpm
       0  sec1
       8  sec2
@@ -291,7 +291,7 @@
 ; ----------------------------------------------------------------------------
 
 (def left_side
-  (norm
+  (normalize
     (bmix sr bpm
       16  (arp sr bpm 8 (vec 86 81 77 74) 10 0.10 0.07 2 1)
       48  (patnotes sr bpm 8 (euclid 9 16 1) (vec 62 65 69 72) 0.25 0.08 0)
@@ -302,7 +302,7 @@
     0.50))
 
 (def right_side
-  (norm
+  (normalize
     (bmix sr bpm
       8   (arp sr bpm 8 (vec 74 77 81 84 88) 7 0.14 0.06 1 2)
       40  (patnotes sr bpm 8 (euclid 7 16 0) (vec 67 71 74 79) 0.375 0.09 2)
@@ -313,18 +313,18 @@
     0.50))
 
 (def left
-  (norm
+  (normalize
     (bmix sr bpm
       0 body
       0 left_side)
     0.95))
 
 (def right
-  (norm
+  (normalize
     (bmix sr bpm
       0 body
       0 right_side)
     0.95))
 
-(def piece (stereo left right))
+(def piece (interleave left right))
 (wavwrite piece sr "idm_demo.wav" 2)

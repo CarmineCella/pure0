@@ -15,11 +15,11 @@
 
 (def bar
   (mix
-    0 (gate (loop k (len ktrig)) ktrig)
-    0 (gate (loop s (len strig)) strig)
-    0 (gate (loop h (len htrig)) htrig)))
+    0 (gate (repeat k (len ktrig)) ktrig)
+    0 (gate (repeat s (len strig)) strig)
+    0 (gate (repeat h (len htrig)) htrig)))
 
 (def d (drone sr (mtof 45) 8 0.25 0.07))
 
-(def piece (norm (bmix sr bpm 0 bar 0 d) 0.95))
-(wavwrite piece sr "out.wav")
+(def piece (normalize (bmix sr bpm 0 bar 0 d) 0.95))
+(wavwrite piece sr "beat1.wav")

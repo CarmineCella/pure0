@@ -583,14 +583,6 @@ static Proc fn_hold() {
     };
 }
 
-static Proc fn_loop() {
-    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 2) throw std::runtime_error("loop expects: sig n");
-        Vector x = as_vec(args[0]);
-        std::size_t n = (std::size_t)std::max(0.0, as_scalar(args[1]));
-        return make_vec(repeat_to(x, n));
-    };
-}
 
 static Proc fn_impulse() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
@@ -925,29 +917,13 @@ static Proc fn_gate() {
     };
 }
 
-static Proc fn_norm() {
-    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() < 1 || args.size() > 2) throw std::runtime_error("norm expects: sig [peak=1]");
-        double peak = (args.size() == 2) ? as_scalar(args[1]) : 1.0;
-        return make_vec(normalize(as_vec(args[0]), peak));
-    };
-}
 
-static Proc fn_chop() {
-    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 2) throw std::runtime_error("chop expects: sig n");
-        Vector x = as_vec(args[0]);
-        std::size_t n = (std::size_t)std::max(0.0, as_scalar(args[1]));
-        return make_vec(take(x, n));
-    };
-}
 
 static void add_beats(std::shared_ptr<Env> env) {
     env->set("mtof",        make_proc(fn_mtof()));
     env->set("ftom",        make_proc(fn_ftom()));
     env->set("seq",         make_proc(fn_seq()));
     env->set("hold",        make_proc(fn_hold()));
-    env->set("loop",        make_proc(fn_loop()));
     env->set("impulse",     make_proc(fn_impulse()));
     env->set("noise",       make_proc(fn_noise()));
     env->set("pulse",       make_proc(fn_pulse()));
@@ -974,8 +950,6 @@ static void add_beats(std::shared_ptr<Env> env) {
     env->set("bassline",    make_proc(fn_bassline()));
     env->set("arp",         make_proc(fn_arp()));
     env->set("gate",        make_proc(fn_gate()));
-    env->set("norm",        make_proc(fn_norm()));
-    env->set("chop",        make_proc(fn_chop()));
 }
 
 #endif

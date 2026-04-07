@@ -1,6 +1,5 @@
 // pure0.cpp - C++17
 //
-// a micro language for algorithmic composition and DSP prototyping, with a built-in orchestral sample database.
 // Copyright (c) 2026 - 2030 Carmine-Emanuele Cella. All rights reserved.
 // Use of this source code is governed by a BSD-style 2
 
@@ -29,7 +28,7 @@ int main(int argc, char** argv) {
             }
         } else {
              std::cout << "[pure0, v0.2]\n\n";
-             std::cout << "Copyright (c) 2026 - 2030 Carmine-Emanuele Cella. All rights reserved.\n\n";
+             std::cout << "Copyright (c) 2026-2030 Carmine-Emanuele Cella.\nAll rights reserved.\n\n";
              repl(env);
         }
     } catch (const std::exception& e) {

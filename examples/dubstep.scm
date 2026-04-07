@@ -58,7 +58,7 @@
 
 (def mkbar
   (lambda (kpat spat hpat opat)
-    (norm
+    (normalize
       (bmix sr bpm
         0 (pat sr bpm 4 kpat k1)
         0 (pat sr bpm 4 spat s1)
@@ -68,7 +68,7 @@
 
 (def mkbar_heavy
   (lambda (kpat spat hpat opat)
-    (norm
+    (normalize
       (bmix sr bpm
         0 (pat sr bpm 4 kpat k2)
         0 (pat sr bpm 4 spat s2)
@@ -78,7 +78,7 @@
 
 (def mkbar_break
   (lambda (kpat hpat opat)
-    (norm
+    (normalize
       (bmix sr bpm
         0 (pat sr bpm 4 kpat k1)
         0 (pat sr bpm 4 hpat h2)
@@ -147,7 +147,7 @@
 
 (def section16
   (lambda (b1 b2 b3 b4 d1 d2)
-    (norm
+    (normalize
       (bmix sr bpm
         0  b1
         4  b2
@@ -199,7 +199,7 @@
 ; ----------------------------------------------------------------------------
 
 (def main
-  (norm
+  (normalize
     (bmix sr bpm
       0   sec01
       64  sec02
@@ -224,7 +224,7 @@
 ; ----------------------------------------------------------------------------
 
 (def side_l
-  (norm
+  (normalize
     (bmix sr bpm
       64  (pat sr bpm 16 (euclid 29 64 0) h2)
       192 (pat sr bpm 16 (euclid 23 64 3) h3)
@@ -237,7 +237,7 @@
     0.55))
 
 (def side_r
-  (norm
+  (normalize
     (bmix sr bpm
       0   dr1
       128 (pat sr bpm 16 (euclid 21 64 2) h3)
@@ -249,18 +249,18 @@
     0.55))
 
 (def left
-  (norm
+  (normalize
     (bmix sr bpm
       0 main
       0 side_l)
     0.95))
 
 (def right
-  (norm
+  (normalize
     (bmix sr bpm
       0 main
       0 side_r)
     0.95))
 
-(def piece (stereo left right))
+(def piece (interleave left right))
 (wavwrite piece sr "dubstep_long_10min.wav" 2)

@@ -125,10 +125,10 @@
     16 d2))
 
 (def piece
-  (norm
+  (normalize
     (bmix sr bpm
       0 drums
       0 bed)
     0.95))
 
-(wavwrite piece sr "out_long.wav")
+(wavwrite piece sr "beat2.wav")

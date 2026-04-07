@@ -15,7 +15,7 @@
 
 ; build bars as actual event patterns
 (def drums_l_bar
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 kpat k)
       0 (pat sr bpm 4 spat s)
@@ -25,7 +25,7 @@
 
 ; a slightly different right bar
 (def drums_r_bar
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (euclid 5 16 1) k)
       0 (pat sr bpm 4 spat s)
@@ -71,7 +71,7 @@
   (drone sr (mtof 40) 16 0.14 0.07))
 
 (def left
-  (norm
+  (normalize
     (bmix sr bpm
       0  drums_l
       0  drone_l
@@ -79,12 +79,12 @@
     0.95))
 
 (def right
-  (norm
+  (normalize
     (bmix sr bpm
       0  drums_r
       0  drone_r
       16 drone_r2)
     0.95))
 
-(def piece (stereo left right))
-(wavwrite piece sr "out_stereo.wav" 2)
+(def piece (interleave left right))
+(wavwrite piece sr "beat3.wav" 2)

@@ -6,7 +6,8 @@ set(PURE0_SOURCES
     pure0.cpp
     ../src/core.h
     ../src/dsp.h
-    ../src/music.h  
+    ../src/beats.h  
+    ../src/sampsynth.h  
 )
 
 add_executable(pure0
@@ -73,6 +74,7 @@ install(TARGETS pure0
 # Install .mu files into ~/.pure0
 install(FILES
     ${CMAKE_SOURCE_DIR}/src/stdlib.scm
+    ${CMAKE_SOURCE_DIR}/src/dsp.scm
     DESTINATION $ENV{HOME}/.pure0
 )
 

@@ -174,6 +174,7 @@ static Proc fn_osc() {
         if (args.size() != 3)
             throw std::runtime_error("osc expects: sr freq table");
         double sr    = as_scalar(args[0]);
+        if (sr <= 0.0) throw std::runtime_error("osc: sr must be > 0");
         Vector freqs = as_vec(args[1]);
         Vector table = as_vec(args[2]);
         int tN = (int)table.size() - 1; // guard point
@@ -233,6 +234,7 @@ static Proc fn_car2pol() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("car2pol expects: spectrum");
         Vector v = as_vec(args[0]);
+        if (v.size() % 2 != 0) throw std::runtime_error("car2pol: spectrum length must be even");
         int N = (int)v.size() / 2;
         Vector out(2*N);
         for (int i = 0; i < N; ++i) {
@@ -249,6 +251,7 @@ static Proc fn_pol2car() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("pol2car expects: spectrum");
         Vector v = as_vec(args[0]);
+        if (v.size() % 2 != 0) throw std::runtime_error("pol2car: spectrum length must be even");
         int N = (int)v.size() / 2;
         Vector out(2*N);
         for (int i = 0; i < N; ++i) {
@@ -256,6 +259,104 @@ static Proc fn_pol2car() {
             out[2*i]   = mag * std::cos(phase);
             out[2*i+1] = mag * std::sin(phase);
         }
+        return make_vec(out);
+    };
+}
+static Proc fn_stft() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 3)
+            throw std::runtime_error("stft expects: sig n hop");
+
+        Vector sig = as_vec(args[0]);
+        int n      = (int)as_scalar(args[1]);
+        int hop    = (int)as_scalar(args[2]);
+
+        if (n <= 0)   throw std::runtime_error("stft: n must be > 0");
+        if (hop <= 0) throw std::runtime_error("stft: hop must be > 0");
+
+        if ((int)sig.size() < n)
+            return make_list({});
+
+        // Hann window
+        Vector win(n);
+        if (n == 1) {
+            win[0] = 1.0;
+        } else {
+            for (int i = 0; i < n; ++i)
+                win[i] = 0.5 - 0.5 * std::cos(2.0 * M_PI * i / (n - 1));
+        }
+
+        Expr::List frames;
+
+        for (int off = 0; off + n <= (int)sig.size(); off += hop) {
+            Vector frame(n);
+            for (int i = 0; i < n; ++i)
+                frame[i] = sig[off + i] * win[i];
+
+            std::vector<ExprPtr> fft_args{make_vec(frame)};
+            frames.push_back(fn_fft()(fft_args, nullptr));
+        }
+
+        return make_list(frames);
+    };
+}
+static Proc fn_istft() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 3)
+            throw std::runtime_error("istft expects: specs n hop");
+
+        if (!is_list(args[0]))
+            throw std::runtime_error("istft: specs must be a list");
+
+        int n   = (int)as_scalar(args[1]);
+        int hop = (int)as_scalar(args[2]);
+
+        if (n <= 0)   throw std::runtime_error("istft: n must be > 0");
+        if (hop <= 0) throw std::runtime_error("istft: hop must be > 0");
+
+        const auto& specs = std::get<Expr::List>(args[0]->v);
+        std::size_t nf = specs.size();
+
+        if (nf == 0)
+            return make_vec(Vector(0.0, 0));
+
+        std::size_t outlen = (std::size_t)n + (nf - 1) * (std::size_t)hop;
+        Vector out(0.0, outlen);
+        Vector wsum(0.0, outlen);
+
+        // Hann window
+        Vector win(n);
+        if (n == 1) {
+            win[0] = 1.0;
+        } else {
+            for (int i = 0; i < n; ++i)
+                win[i] = 0.5 - 0.5 * std::cos(2.0 * M_PI * i / (n - 1));
+        }
+
+        for (std::size_t fi = 0; fi < nf; ++fi) {
+            Vector spec = as_vec(specs[fi]);
+
+            std::vector<ExprPtr> ifft_args{make_vec(spec)};
+            Vector frame = as_vec(fn_ifft()(ifft_args, nullptr));
+
+            if ((int)frame.size() < n)
+                throw std::runtime_error("istft: frame shorter than n");
+
+            std::size_t off = fi * (std::size_t)hop;
+
+            for (int i = 0; i < n; ++i) {
+                double w = win[i];
+                out[off + (std::size_t)i] += frame[i] * w;
+                wsum[off + (std::size_t)i] += w * w;
+            }
+        }
+
+        // normalize overlap-add
+        for (std::size_t i = 0; i < outlen; ++i) {
+            if (wsum[i] > 1e-12)
+                out[i] /= wsum[i];
+        }
+
         return make_vec(out);
     };
 }
@@ -602,22 +703,102 @@ static Proc fn_wavread() {
     };
 }
 
-static Vector stereo_interleave(const Vector& left, const Vector& right) {
-    std::size_t n = std::max<std::size_t>(left.size(), right.size());
-    Vector l = broadcast(left, n);
-    Vector r = broadcast(right, n);
-    Vector out(n * 2);
-    for (std::size_t i = 0; i < n; ++i) {
-        out[2 * i] = l[i];
-        out[2 * i + 1] = r[i];
+static Vector extract_strided(const Vector& sig, std::size_t stride, std::size_t index) {
+    if (stride == 0) throw std::runtime_error("deinterleave: stride must be > 0");
+    if (index >= stride) throw std::runtime_error("deinterleave: index out of range");
+    std::size_t frames = sig.size() / stride;
+    Vector out(frames);
+    for (std::size_t i = 0; i < frames; ++i) out[i] = sig[i * stride + index];
+    return out;
+}
+
+static Vector interleave_vectors(const std::vector<Vector>& chans) {
+    if (chans.empty()) return Vector(0.0, 0);
+    std::size_t nstreams = chans.size();
+    std::size_t n = 0;
+    for (const auto& ch : chans) n = std::max<std::size_t>(n, ch.size());
+    Vector out(n * nstreams);
+    for (std::size_t s = 0; s < nstreams; ++s) {
+        Vector bc = broadcast(chans[s], n);
+        for (std::size_t i = 0; i < n; ++i) out[i * nstreams + s] = bc[i];
     }
     return out;
 }
 
-static Proc fn_stereo() {
+static Proc fn_deinterleave() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 2) throw std::runtime_error("stereo expects: left right");
-        return make_vec(stereo_interleave(as_vec(args[0]), as_vec(args[1])));
+        if (args.size() != 3) throw std::runtime_error("deinterleave expects: sig nstreams index");
+        Vector sig = as_vec(args[0]);
+        int nstreams = (int)as_scalar(args[1]);
+        int index = (int)as_scalar(args[2]);
+        if (nstreams <= 0) throw std::runtime_error("deinterleave: nstreams must be > 0");
+        if (index < 0 || index >= nstreams) throw std::runtime_error("deinterleave: index out of range");
+        return make_vec(extract_strided(sig, (std::size_t)nstreams, (std::size_t)index));
+    };
+}
+
+static Proc fn_interleave() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.empty()) throw std::runtime_error("interleave expects at least 1 vector");
+        std::vector<Vector> chans;
+        chans.reserve(args.size());
+        for (const auto& a : args) chans.push_back(as_vec(a));
+        return make_vec(interleave_vectors(chans));
+    };
+}
+
+static Proc fn_oscbank() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 4)
+            throw std::runtime_error("oscbank expects: sr amps freqs table");
+
+        double sr = as_scalar(args[0]);
+        if (sr <= 0.0)
+            throw std::runtime_error("oscbank: sr must be > 0");
+
+        if (!is_list(args[1]) || !is_list(args[2]))
+            throw std::runtime_error("oscbank: amps and freqs must be lists of vectors");
+
+        Vector table = as_vec(args[3]);
+        if (table.size() < 2)
+            throw std::runtime_error("oscbank: table must have at least 2 samples");
+
+        const auto& amps  = std::get<Expr::List>(args[1]->v);
+        const auto& freqs = std::get<Expr::List>(args[2]->v);
+
+        if (amps.size() != freqs.size())
+            throw std::runtime_error("oscbank: amps and freqs must have same length");
+
+        if (amps.empty())
+            return make_vec(Vector(0.0, 0));
+
+        Vector a0 = as_vec(amps[0]);
+        Vector f0 = as_vec(freqs[0]);
+        std::size_t n = a0.size();
+
+        if (f0.size() != n)
+            throw std::runtime_error("oscbank: first amp/freq pair must have same length");
+
+        Vector acc(0.0, n);
+
+        for (std::size_t k = 0; k < amps.size(); ++k) {
+            Vector a = as_vec(amps[k]);
+            Vector f = as_vec(freqs[k]);
+
+            if (a.size() != n || f.size() != n)
+                throw std::runtime_error("oscbank: all envelopes and frequency tracks must have same length");
+
+            std::vector<ExprPtr> osc_args{
+                make_scalar(sr),
+                make_vec(f),
+                make_vec(table)
+            };
+
+            Vector part = as_vec(fn_osc()(osc_args, nullptr));
+            acc += part * a;
+        }
+
+        return make_vec(acc);
     };
 }
 
@@ -630,6 +811,8 @@ static void add_dsp(std::shared_ptr<Env> env) {
     env->set("ifft",         make_proc(fn_ifft()));
     env->set("car2pol",      make_proc(fn_car2pol()));
     env->set("pol2car",      make_proc(fn_pol2car()));
+    env->set("stft",         make_proc(fn_stft()));
+    env->set("istft",        make_proc(fn_istft()));    
     env->set("window",       make_proc(fn_window()));
     env->set("conv",         make_proc(fn_conv()));
     env->set("resample",     make_proc(fn_resample()));
@@ -642,7 +825,9 @@ static void add_dsp(std::shared_ptr<Env> env) {
     env->set("wavread",      make_proc(fn_wavread()));
     env->set("wavwrite",     make_proc(fn_wavwrite()));
     env->set("mix",          make_proc(fn_mix()));
-    env->set("stereo",      make_proc(fn_stereo()));    
+    env->set("deinterleave", make_proc(fn_deinterleave()));
+    env->set("interleave",   make_proc(fn_interleave()));
+    env->set("oscbank", make_proc(fn_oscbank()));    
 }
 
 #endif // DSP_H

@@ -24,7 +24,7 @@
     (vec 50 57 53 60)
     0.75 0.22 1))
 
-(def left  (norm (bmix sr bpm 0 drums 0 bass 0 stab 0 lead) 0.95))
-(def right (norm (bmix sr bpm 0 drums 0 bass 0 (drone sr (mtof 45) 8 0.08 0.18) 0 lead) 0.95))
+(def left  (normalize (bmix sr bpm 0 drums 0 bass 0 stab 0 lead) 0.95))
+(def right (normalize (bmix sr bpm 0 drums 0 bass 0 (drone sr (mtof 45) 8 0.08 0.18) 0 lead) 0.95))
 
-(wavwrite (stereo left right) sr "test_music_new.wav" 2)
+(wavwrite (interleave left right) sr "test_music_new.wav" 2)

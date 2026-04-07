@@ -1,7 +1,4 @@
 ; ============================================================================
-; dark_minor_evolution.mu
-; original long-form dark piece
-; structure:
 ; drone -> hats -> bassline -> kick -> melodies -> varied continuation
 ; all harmonic materials are minor-centered
 ; ============================================================================
@@ -67,28 +64,28 @@
 ; ----------------------------------------------------------------------------
 
 (def hats_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (euclid 7 16 1) h_tick)
       0 (pat sr bpm 8 (vec 0 0 0.2 0   0 0 0 0   0 0 0.3 0   0 0 0 0) h_soft))
     0.55))
 
 (def hats_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (euclid 8 16 0) h_tick)
       0 (pat sr bpm 8 (vec 0 0 0 1   0 0 0 0   0 0 0 1   0 0 0 0) h_air))
     0.58))
 
 (def hats_3
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (euclid 9 16 2) h_soft)
       0 (pat sr bpm 8 (vec 0 0 0.2 0   0 0 0 0   0 0 0.2 0   0 0 0 1) h_tick))
     0.60))
 
 (def hats_4
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (euclid 11 16 0) h_tick)
       0 (pat sr bpm 8 (vec 0 0 0 0   0 0 0 1   0 0 0 0   0 0 0 1) h_air))
@@ -133,25 +130,25 @@
 ; ----------------------------------------------------------------------------
 
 (def kicks_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (vec 1 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0) k_soft))
     0.68))
 
 (def kicks_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (vec 1 0 0 0   0 0 1 0   1 0 0 0   0 0 0 0) k_soft))
     0.74))
 
 (def kicks_3
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (vec 1 0 0 0   1 0 0 0   0 0 1 0   0 0 0 0) k_deep))
     0.80))
 
 (def kicks_4
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 8 (vec 1 0 1 0   0 0 0 0   1 0 0 0   0 0 1 0) k_deep))
     0.84))
@@ -202,7 +199,7 @@
 
 ; 1. drone only
 (def sec_01
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_a1
       0 drone_a2)
@@ -210,7 +207,7 @@
 
 ; 2. add hats
 (def sec_02
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_a1
       0 drone_a2
@@ -219,7 +216,7 @@
 
 ; 3. hats vary
 (def sec_03
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_b1
       0 drone_b2
@@ -228,7 +225,7 @@
 
 ; 4. add bassline
 (def sec_04
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_b1
       0 drone_b2
@@ -237,7 +234,7 @@
     0.90))
 
 (def sec_05
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_c1
       0 drone_c2
@@ -247,7 +244,7 @@
 
 ; 5. add kick
 (def sec_06
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_c1
       0 drone_c2
@@ -257,7 +254,7 @@
     0.92))
 
 (def sec_07
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_d1
       0 drone_d2
@@ -268,7 +265,7 @@
 
 ; 6. add melody / arp
 (def sec_08
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_d1
       0 drone_d2
@@ -280,7 +277,7 @@
     0.94))
 
 (def sec_09
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_e1
       0 drone_e2
@@ -292,7 +289,7 @@
     0.95))
 
 (def sec_10
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_e1
       0 drone_e2
@@ -305,7 +302,7 @@
 
 ; further variations
 (def sec_11
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_d1
       0 hats_1
@@ -316,7 +313,7 @@
     0.94))
 
 (def sec_12
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_c1
       0 hats_4
@@ -327,7 +324,7 @@
     0.94))
 
 (def sec_13
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_b1
       0 hats_2
@@ -338,7 +335,7 @@
     0.93))
 
 (def sec_14
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_d2
       0 hats_3
@@ -349,7 +346,7 @@
     0.95))
 
 (def sec_15
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_e2
       0 hats_4
@@ -360,7 +357,7 @@
     0.95))
 
 (def sec_16
-  (norm
+  (normalize
     (bmix sr bpm
       0 drone_a1
       0 hats_1
@@ -375,7 +372,7 @@
 ; ----------------------------------------------------------------------------
 
 (def body
-  (norm
+  (normalize
     (bmix sr bpm
       0   sec_01
       8   sec_02
@@ -415,7 +412,7 @@
 ; ----------------------------------------------------------------------------
 
 (def left_side
-  (norm
+  (normalize
     (bmix sr bpm
       32  (drone sr (mtof 57) 10 0.03 0.20)
       88  (arp sr bpm 8 (vec 81 76 72 69) 10 0.09 0.028 2 1)
@@ -423,7 +420,7 @@
     0.34))
 
 (def right_side
-  (norm
+  (normalize
     (bmix sr bpm
       48  (drone sr (mtof 60) 10 0.03 0.17)
       104 (arp sr bpm 8 (vec 79 74 71 67) 12 0.08 0.028 1 2)
@@ -431,18 +428,18 @@
     0.34))
 
 (def left
-  (norm
+  (normalize
     (bmix sr bpm
       0 body
       0 left_side)
     0.95))
 
 (def right
-  (norm
+  (normalize
     (bmix sr bpm
       0 body
       0 right_side)
     0.95))
 
-(def piece (stereo left right))
-(wavwrite piece sr "dark_minor_evolution.wav" 2)
+(def piece (interleave left right))
+(wavwrite piece sr "dark_tension2.wav" 2)

@@ -101,7 +101,7 @@ static std::string repr(const ExprPtr& x) {
             if (i) oss << " ";
             oss << repr(xs[i]);
         }
-        oss << ")";
+        oss << ")" << std::endl;
         return oss.str();
     }
     Vector v = as_vec(x);

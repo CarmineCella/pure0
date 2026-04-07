@@ -1,6 +1,4 @@
 ; ============================================================================
-; dark_tension_long.mu
-; original piece in a nearby mood:
 ; dark, tense, minor-centered, subtle rhythms, intense buildup
 ; ============================================================================
 
@@ -48,7 +46,7 @@
 ; ----------------------------------------------------------------------------
 
 (def bar_pulse_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0) k_soft)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0) s_dark)
@@ -56,7 +54,7 @@
     0.78))
 
 (def bar_pulse_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 0 0 0   0 0 1 0   0 0 0 0) k_soft)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 0 0.4 0) s_dark)
@@ -64,7 +62,7 @@
     0.80))
 
 (def bar_pulse_3
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 0 0 0   1 0 0 0   0 1 0 0) k_soft)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0) s_dark)
@@ -72,7 +70,7 @@
     0.82))
 
 (def bar_pulse_4
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 0 1 0   0 0 0 0   0 0 0 0) k_soft)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 0 0 0) s_dark)
@@ -80,7 +78,7 @@
     0.78))
 
 (def bar_drive_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 0 1 0   1 0 0 0   0 0 0 0) k_deep)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 0 1 0) s_sharp)
@@ -88,7 +86,7 @@
     0.86))
 
 (def bar_drive_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   1 0 0 0   0 0 1 0   0 0 0 0) k_deep)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0.4 0   1 0 0 0   0 0 0 0) s_sharp)
@@ -96,7 +94,7 @@
     0.88))
 
 (def bar_drive_3
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 1 0   0 0 0 0   1 0 0 0   0 0 1 0) k_deep)
       0 (pat sr bpm 4 (vec 0 0 0 0   0 0 0 0   1 0 0 0   0 1 0 0) s_dark)
@@ -104,7 +102,7 @@
     0.90))
 
 (def bar_break
-  (norm
+  (normalize
     (bmix sr bpm
       0 (pat sr bpm 4 (vec 1 0 0 0   0 0 0 0   0 0 0 0   0 0 0 1) k_soft)
       0 (pat sr bpm 4 (vec 0 0 0.2 0   0 0 0 0   0 0 0.2 0   0 0 0 0) h_air))
@@ -210,7 +208,7 @@
 ; ----------------------------------------------------------------------------
 
 (def sec_intro_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_break
       4 bar_pulse_1
@@ -220,7 +218,7 @@
     0.90))
 
 (def sec_intro_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_pulse_2
       4 bar_pulse_3
@@ -230,7 +228,7 @@
     0.90))
 
 (def sec_mid_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_pulse_4
       4 bar_drive_1
@@ -241,7 +239,7 @@
     0.92))
 
 (def sec_mid_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_drive_2
       4 bar_pulse_3
@@ -251,7 +249,7 @@
     0.92))
 
 (def sec_rise_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_drive_1
       4 bar_drive_2
@@ -262,7 +260,7 @@
     0.93))
 
 (def sec_rise_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_drive_3
       4 bar_drive_1
@@ -273,7 +271,7 @@
     0.94))
 
 (def sec_drop_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_drive_3
       4 bar_drive_2
@@ -284,7 +282,7 @@
     0.95))
 
 (def sec_drop_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_drive_2
       4 bar_break
@@ -294,7 +292,7 @@
     0.94))
 
 (def sec_dark_1
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_pulse_1
       4 bar_break
@@ -305,7 +303,7 @@
     0.90))
 
 (def sec_dark_2
-  (norm
+  (normalize
     (bmix sr bpm
       0 bar_pulse_4
       4 bar_pulse_2
@@ -322,7 +320,7 @@
 ; ----------------------------------------------------------------------------
 
 (def body
-  (norm
+  (normalize
     (bmix sr bpm
       0   sec_intro_1
       8   sec_intro_2
@@ -363,7 +361,7 @@
 ; ----------------------------------------------------------------------------
 
 (def left_side
-  (norm
+  (normalize
     (bmix sr bpm
       24  (drone sr (mtof 57) 10 0.03 0.24)
       72  (arp sr bpm 8 (vec 81 76 72 69) 10 0.10 0.03 2 1)
@@ -372,7 +370,7 @@
     0.40))
 
 (def right_side
-  (norm
+  (normalize
     (bmix sr bpm
       40  (drone sr (mtof 60) 10 0.03 0.21)
       88  (arp sr bpm 8 (vec 79 74 71 67) 12 0.08 0.03 1 2)
@@ -381,18 +379,18 @@
     0.40))
 
 (def left
-  (norm
+  (normalize
     (bmix sr bpm
       0 body
       0 left_side)
     0.95))
 
 (def right
-  (norm
+  (normalize
     (bmix sr bpm
       0 body
       0 right_side)
     0.95))
 
-(def piece (stereo left right))
-(wavwrite piece sr "dark_tension_long.wav" 2)
+(def piece (interleave left right))
+(wavwrite piece sr "dark_tension.wav" 2)
