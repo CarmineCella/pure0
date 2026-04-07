@@ -142,17 +142,17 @@
 
 (def vn_bank
   (bank
-    (db-pick SOL "Vn" "ord" "C5" "mf")
-    (db-pick SOL "Vn" "ord" "E5" "mf")
-    (db-pick SOL "Vn" "ord" "G5" "mf")
-    (db-pick SOL "Vn" "ord" "A5" "mf")))
+    (catalog-pick SOL "Vn" "ord" "C5" "mf")
+    (catalog-pick SOL "Vn" "ord" "E5" "mf")
+    (catalog-pick SOL "Vn" "ord" "G5" "mf")
+    (catalog-pick SOL "Vn" "ord" "A5" "mf")))
 
 (def fl_bank
   (bank
-    (db-pick SOL "Fl" "ord" "C6" "mf")
-    (db-pick SOL "Fl" "ord" "E6" "mf")
-    (db-pick SOL "Fl" "ord" "G6" "mf")
-    (db-pick SOL "Fl" "ord" "A6" "mf")))
+    (catalog-pick SOL "Fl" "ord" "C6" "mf")
+    (catalog-pick SOL "Fl" "ord" "E6" "mf")
+    (catalog-pick SOL "Fl" "ord" "G6" "mf")
+    (catalog-pick SOL "Fl" "ord" "A6" "mf")))
 
 (def seq_vn
   (norm

@@ -16,7 +16,7 @@
 (def sr 48000)
 
 ; total duration in seconds (~6 minutes here; change if you want)
-(def dur 360)
+(def dur 40)
 
 (def SOL (loaddb "/Users/n4/Projects/Media/Datasets/TinySOL"))
 
@@ -44,32 +44,32 @@
 (def density_curve
   (list
     (list 0   0.18)
-    (list 60  0.35)
-    (list 120 0.80)
-    (list 180 1.70)
-    (list 240 1.10)
-    (list 300 0.40)
-    (list 360 0.18)))
+    (list 6  0.35)
+    (list 12 0.80)
+    (list 18 1.70)
+    (list 24 4.10)
+    (list 30 8.40)
+    (list 36 10.18)))
 
 ; relative randomization of density
 (def rand_density_curve
   (list
     (list 0   0.10)
-    (list 120 0.25)
-    (list 180 0.35)
-    (list 300 0.18)
-    (list 360 0.10)))
+    (list 12 0.25)
+    (list 18 0.35)
+    (list 30 0.18)
+    (list 36 0.10)))
 
 ; long -> short -> long
 (def length_curve
   (list
-    (list 0   9.0)
-    (list 60  7.0)
-    (list 120 4.5)
-    (list 180 1.2)
-    (list 240 2.6)
-    (list 300 6.5)
-    (list 360 9.0)))
+    (list 0   4.0)
+    (list 6  3 0)
+    (list 12 1.5)
+    (list 18 1)
+    (list 24 .6)
+    (list 30 .5)
+    (list 36 .2)))
 
 (def rand_length_curve
   (list
@@ -82,22 +82,20 @@
 ; register 3-4 -> toward 5 -> back to 3-4
 (def octave_range_curve
   (list
-    (list 0   3 4)
-    (list 60  3 4)
-    (list 120 4 4)
-    (list 180 4 5)
-    (list 240 4 5)
-    (list 300 3 4)
-    (list 360 3 4)))
+    (list 0 3 3)
+    (list 6  3 4)
+    (list 12 4 4)
+    (list 18 5 6)
+    (list 24 6 6)))
 
 (def rand_octave_curve
   (list
     (list 0   0)
-    (list 120 1)
-    (list 180 1)
-    (list 300 0)
-    (list 360 0)))
-
+    (list 12 1)
+    (list 18 1)
+    (list 30 0)
+    (list 36 0)))
+ 
 ; ----------------------------------------------------------------------------
 ; harmonic schedule
 ; first: mixed C minor + F# minor
@@ -113,10 +111,10 @@
     ; C minor + F# minor aggregate:
     ; C Eb G  +  F# A C#
     (list 0   (vec 48 51 55 54 57 61))
-    (list 90  (vec 48 51 55 54 57 61 63))
-    (list 180 (vec 48 51 54 55 57 61 63 67))
-    (list 270 (vec 48 51 55 54 57 61))
-    (list 360 (vec 48 51 55 54 57 61))))
+    (list 9  (vec 48 51 55 54 57 61 63))
+    (list 18  (vec 48 51 54 55 57 61 63 67))
+    (list 27  (vec 48 51 55 54 57 61))
+    (list 36  (vec 48 51 55 54 57 61))))
 
 ; ----------------------------------------------------------------------------
 ; style groups over time
@@ -125,11 +123,7 @@
 
 (def style_schedule
   (list
-    (list 0   (list "ord"))
-    (list 120 (list "ord" "ord" "ord"))
-    (list 180 (list "ord" "ord" "ord"))
-    (list 240 (list "ord" "ord"))
-    (list 360 (list "ord"))))
+    (list 0   (list "ord"))))
 
 ; ----------------------------------------------------------------------------
 ; dynamic groups over time
@@ -139,12 +133,8 @@
 (def dynamic_schedule
   (list
     (list 0   (list "ppp"))
-    (list 60  (list "ppp" "pp"))
-    (list 120 (list "pp" "p" "mp"))
-    (list 180 (list "mf" "f" "ff" "fff"))
-    (list 240 (list "f" "mf" "mp"))
-    (list 300 (list "pp" "ppp"))
-    (list 360 (list "ppp"))))
+    (list 18 (list "mf" "f" "ff" "fff"))
+    (list 36 (list "ppp"))))
 
 ; ----------------------------------------------------------------------------
 ; render
