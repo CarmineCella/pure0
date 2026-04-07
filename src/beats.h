@@ -30,22 +30,6 @@ static double frand_signed() {
     return 2.0 * frand() - 1.0;
 }
 
-static Vector take(const Vector& x, std::size_t n) {
-    Vector r(n);
-    std::size_t m = std::min<std::size_t>(x.size(), n);
-    for (std::size_t i = 0; i < m; ++i) r[i] = x[i];
-    for (std::size_t i = m; i < n; ++i) r[i] = 0.0;
-    return r;
-}
-
-static Vector repeat_to(const Vector& x, std::size_t n) {
-    if (n == 0) return Vector(0.0, 0);
-    if (x.size() == 0) return Vector(0.0, n);
-    Vector r(n);
-    for (std::size_t i = 0; i < n; ++i) r[i] = x[i % x.size()];
-    return r;
-}
-
 static Vector noise(std::size_t n, double amp = 1.0) {
     Vector r(n);
     for (std::size_t i = 0; i < n; ++i) r[i] = amp * frand_signed();
@@ -81,24 +65,21 @@ static Vector cos_env(std::size_t n) {
     return w;
 }
 
-static std::vector<double> as_float_vector(const ExprPtr& x) {
+static Vector as_float_vector(const ExprPtr& x) {
     if (is_list(x)) {
         const auto& xs = std::get<Expr::List>(x->v);
-        std::vector<double> out(xs.size());
-        for (const auto& e : xs) out.push_back(as_scalar(e));
+        Vector out(xs.size());
+        for (std::size_t i = 0; i < xs.size(); ++i) out[i] = as_scalar(xs[i]);
         return out;
     }
     if (is_vec(x)) {
-        Vector v = as_vec(x);
-        std::vector<double> out(v.size());
-        for (std::size_t i = 0; i < v.size(); ++i) out[i] = v[i];
-        return out;
+        return as_vec(x);
     }
     throw std::runtime_error("expected list or vector of numbers");
 }
 
 static std::vector<int> as_int_vector(const ExprPtr& x) {
-    std::vector<double> tmp = as_float_vector(x);
+    Vector tmp = as_float_vector(x);
     std::vector<int> out(tmp.size());
     for (std::size_t i = 0; i < tmp.size(); ++i) out[i] = (int)std::floor(tmp[i]);
     return out;
@@ -110,14 +91,14 @@ static int beat_samples(double sr, double bpm, double beats) {
     return iround((60.0 / bpm) * beats * sr);
 }
 
-static Vector seq_values(std::size_t n, const std::vector<double>& vals) {
-    if (vals.empty()) return Vector(0.0, n);
+static Vector seq_values(std::size_t n, const Vector& vals) {
+    if (vals.size() == 0) return Vector(0.0, n);
     Vector r(n);
     for (std::size_t i = 0; i < n; ++i) r[i] = vals[i % vals.size()];
     return r;
 }
 
-static Vector hold_values(const std::vector<double>& vals, std::size_t seglen) {
+static Vector hold_values(const Vector& vals, std::size_t seglen) {
     if (seglen == 0) throw std::runtime_error("seglen must be > 0");
     Vector r(vals.size() * seglen);
     for (std::size_t i = 0; i < vals.size(); ++i)
@@ -151,8 +132,8 @@ static Vector trigger_train(int total_samples, int step_samples, const std::vect
     return out;
 }
 
-static Vector gen_table(const std::vector<double>& coeffs) {
-    if (coeffs.empty()) throw std::runtime_error("table coefficients cannot be empty");
+static Vector gen_table(const Vector& coeffs) {
+    if (coeffs.size() == 0) throw std::runtime_error("table coefficients cannot be empty");
     std::vector<ExprPtr> args;
     args.reserve(coeffs.size() + 1);
     args.push_back(make_scalar(4096.0));
@@ -450,10 +431,10 @@ static Vector bass_sub(double sr, double hz, double dur, double amp, double wobb
     return normalize(sig * amp, 1.0);
 }
 
-static Vector pat(double sr, double bpm, double beats, const std::vector<double>& pattern, const Vector& event) {
+static Vector pat(double sr, double bpm, double beats, const Vector& pattern, const Vector& event) {
     int total = beat_samples(sr, bpm, beats);
     if (total <= 0) return Vector(0.0, 0);
-    if (pattern.empty() || event.size() == 0) return Vector(0.0, (std::size_t)total);
+    if (pattern.size() == 0 || event.size() == 0) return Vector(0.0, (std::size_t)total);
     int step_samples = std::max(1, iround((double)total / (double)pattern.size()));
     std::vector<ExprPtr> mix_args;
     for (std::size_t i = 0; i < pattern.size(); ++i) {
@@ -467,12 +448,12 @@ static Vector pat(double sr, double bpm, double beats, const std::vector<double>
 }
 
 static Vector patnotes(double sr, double bpm, double beats,
-                             const std::vector<double>& pattern,
-                             const std::vector<double>& midi_notes,
+                             const Vector& pattern,
+                             const Vector& midi_notes,
                              double note_beats, double amp, int shape) {
     int total = beat_samples(sr, bpm, beats);
     if (total <= 0) return Vector(0.0, 0);
-    if (pattern.empty() || midi_notes.empty()) return Vector(0.0, (std::size_t)total);
+    if (pattern.size() == 0 || midi_notes.size() == 0) return Vector(0.0, (std::size_t)total);
     int step_samples = std::max(1, iround((double)total / (double)pattern.size()));
     double step_beats = beats / (double)pattern.size();
     double dur_beats = (note_beats > 0.0) ? note_beats : step_beats;
@@ -494,13 +475,13 @@ static Vector patnotes(double sr, double bpm, double beats,
 }
 
 static Vector bassline(double sr, double bpm, double beats,
-                             const std::vector<double>& pattern,
-                             const std::vector<double>& midi_notes,
+                             const Vector& pattern,
+                             const Vector& midi_notes,
                              double note_beats, double amp,
                              double wobble_hz, int shape) {
     int total = beat_samples(sr, bpm, beats);
     if (total <= 0) return Vector(0.0, 0);
-    if (pattern.empty() || midi_notes.empty()) return Vector(0.0, (std::size_t)total);
+    if (pattern.size() == 0 || midi_notes.size() == 0) return Vector(0.0, (std::size_t)total);
     int step_samples = std::max(1, iround((double)total / (double)pattern.size()));
     double step_beats = beats / (double)pattern.size();
     double dur_beats = (note_beats > 0.0) ? note_beats : step_beats;
@@ -521,30 +502,36 @@ static Vector bassline(double sr, double bpm, double beats,
     return take(as_vec(fn_mix()(mix_args, nullptr)), (std::size_t)total);
 }
 
-static std::vector<double> arp_order(const std::vector<double>& notes, int mode) {
-    if (notes.empty()) return {};
-    if (mode == 1) return std::vector<double>(notes.rbegin(), notes.rend());
+static Vector arp_order(const Vector& notes, int mode) {
+    if (notes.size() == 0) return Vector(0.0, 0);
+    if (mode == 1) {
+        Vector out(notes.size());
+        for (std::size_t i = 0; i < notes.size(); ++i) out[i] = notes[notes.size() - 1 - i];
+        return out;
+    }
     if (mode == 2 && notes.size() > 1) {
-        std::vector<double> out = notes;
-        for (std::size_t i = notes.size() - 2; i > 0; --i) out.push_back(notes[i]);
+        Vector out(notes.size() * 2 - 2);
+        for (std::size_t i = 0; i < notes.size(); ++i) out[i] = notes[i];
+        std::size_t k = notes.size();
+        for (std::size_t i = notes.size() - 2; i > 0; --i) out[k++] = notes[i];
         return out;
     }
     return notes;
 }
 
 static Vector arp(double sr, double bpm, double beats,
-                        const std::vector<double>& midi_notes,
+                        const Vector& midi_notes,
                         double subdiv, double note_beats,
                         double amp, int shape, int mode) {
     int total = beat_samples(sr, bpm, beats);
     if (total <= 0) return Vector(0.0, 0);
-    if (midi_notes.empty()) return Vector(0.0, (std::size_t)total);
+    if (midi_notes.size() == 0) return Vector(0.0, (std::size_t)total);
     subdiv = std::max(1.0, subdiv);
     double step_beats = 1.0 / subdiv;
     int count = std::max(1, (int)std::floor(beats * subdiv + 1e-9));
     int step_samples = std::max(1, beat_samples(sr, bpm, step_beats));
     double dur_sec = (60.0 / bpm) * ((note_beats > 0.0) ? note_beats : step_beats);
-    std::vector<double> order = arp_order(midi_notes, mode);
+    Vector order = arp_order(midi_notes, mode);
     std::vector<ExprPtr> mix_args;
     for (int i = 0; i < count; ++i) {
         double midi = order[(std::size_t)i % order.size()];
@@ -581,9 +568,8 @@ static Proc fn_seq() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 2) throw std::runtime_error("seq expects: n v1 [v2 ...]");
         std::size_t n = (std::size_t)std::max(0.0, as_scalar(args[0]));
-        std::vector<double> vals;
-        vals.reserve(args.size() - 1);
-        for (std::size_t i = 1; i < args.size(); ++i) vals.push_back(as_scalar(args[i]));
+        Vector vals(args.size() - 1);
+        for (std::size_t i = 1; i < args.size(); ++i) vals[i - 1] = as_scalar(args[i]);
         return make_vec(seq_values(n, vals));
     };
 }
@@ -591,7 +577,7 @@ static Proc fn_seq() {
 static Proc fn_hold() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2) throw std::runtime_error("hold expects: pattern seglen");
-        std::vector<double> vals = as_float_vector(args[0]);
+        Vector vals = as_float_vector(args[0]);
         std::size_t seglen = (std::size_t)std::max(0.0, as_scalar(args[1]));
         return make_vec(hold_values(vals, seglen));
     };
@@ -876,7 +862,7 @@ static Proc fn_pat() {
         double sr = as_scalar(args[0]);
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
-        std::vector<double> pattern = as_float_vector(args[3]);
+        Vector pattern = as_float_vector(args[3]);
         Vector event = as_vec(args[4]);
         return make_vec(pat(sr, bpm, beats, pattern, event));
     };
@@ -889,8 +875,8 @@ static Proc fn_patnotes() {
         double sr = as_scalar(args[0]);
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
-        std::vector<double> pattern = as_float_vector(args[3]);
-        std::vector<double> notes = as_float_vector(args[4]);
+        Vector pattern = as_float_vector(args[3]);
+        Vector notes = as_float_vector(args[4]);
         double note_beats = as_scalar(args[5]);
         double amp = as_scalar(args[6]);
         int shape = (args.size() == 8) ? (int)as_scalar(args[7]) : 0;
@@ -905,8 +891,8 @@ static Proc fn_bassline() {
         double sr = as_scalar(args[0]);
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
-        std::vector<double> pattern = as_float_vector(args[3]);
-        std::vector<double> notes = as_float_vector(args[4]);
+        Vector pattern = as_float_vector(args[3]);
+        Vector notes = as_float_vector(args[4]);
         double note_beats = as_scalar(args[5]);
         double amp = as_scalar(args[6]);
         double wobble_hz = (args.size() >= 8) ? as_scalar(args[7]) : 2.0;
@@ -922,7 +908,7 @@ static Proc fn_arp() {
         double sr = as_scalar(args[0]);
         double bpm = as_scalar(args[1]);
         double beats = as_scalar(args[2]);
-        std::vector<double> notes = as_float_vector(args[3]);
+        Vector notes = as_float_vector(args[3]);
         double subdiv = as_scalar(args[4]);
         double note_beats = as_scalar(args[5]);
         double amp = as_scalar(args[6]);

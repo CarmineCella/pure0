@@ -522,7 +522,39 @@ static Proc fn_normalize() {
         return make_vec(normalize(v, peak));
     };
 }
+static Vector take(const Vector& x, std::size_t n) {
+    Vector r(n);
+    std::size_t m = std::min<std::size_t>(x.size(), n);
+    for (std::size_t i = 0; i < m; ++i) r[i] = x[i];
+    for (std::size_t i = m; i < n; ++i) r[i] = 0.0;
+    return r;
+}
+static Vector repeat_to(const Vector& x, std::size_t n) {
+    if (n == 0) return Vector(0.0, 0);
+    if (x.size() == 0) return Vector(0.0, n);
+    Vector r(n);
+    for (std::size_t i = 0; i < n; ++i) r[i] = x[i % x.size()];
+    return r;
+}
+static Proc fn_take() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 2)
+            throw std::runtime_error("take expects: vector n");
+        Vector x = as_vec(args[0]);
+        std::size_t n = (std::size_t)std::max(0.0, as_scalar(args[1]));
+        return make_vec(take(x, n));
+    };
+}
 
+static Proc fn_repeat() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 2)
+            throw std::runtime_error("repeat expects: vector n");
+        Vector x = as_vec(args[0]);
+        std::size_t n = (std::size_t)std::max(0.0, as_scalar(args[1]));
+        return make_vec(repeat_to(x, n));
+    };
+}
 static Proc fn_sum() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("sum expects 1 arg");
@@ -796,7 +828,9 @@ static std::shared_ptr<Env> make_environment() {
     env->set("zeros", make_proc(fn_zeros()));
     env->set("ones", make_proc(fn_ones()));
     env->set("slice", make_proc(fn_slice()));
-    env->set("normalize", make_proc(fn_normalize()));   
+    env->set("normalize", make_proc(fn_normalize()));  
+    env->set("take", make_proc(fn_take()));   
+    env->set("repeat", make_proc(fn_repeat()));
     env->set("sum", make_proc(fn_sum()));
     env->set("prod", make_proc(fn_prod()));
     env->set("min", make_proc(fn_min()));
