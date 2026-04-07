@@ -134,6 +134,37 @@ static uint32_t wav_read_le32(std::istream& in) {
 
 // ── DSP primitives ────────────────────────────────────────────────────────────
 
+// (gen n c1 c2 c3 ...) — additive wavetable via gen10
+// Generates n+1 samples (with guard point) as a sum of sines:
+//   sample[i] = sum_j( cj * sin(2*pi*(j+1)*i/n) ) / sum(cj)
+// The guard point (last sample == first sample) is required by osc.
+// Example: (gen 4096 1) → pure sine  (gen 4096 1 0.5 0.25) → 3 harmonics
+static Proc fn_gen() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() < 2)
+            throw std::runtime_error("gen expects: n c1 [c2 ...]");
+        int n = (int)as_scalar(args[0]);
+        if (n <= 0) throw std::runtime_error("gen: n must be > 0");
+        int nh = (int)args.size() - 1;
+        std::vector<double> coeffs(nh);
+        double norm = 0.0;
+        for (int j = 0; j < nh; ++j) {
+            coeffs[j] = as_scalar(args[j + 1]);
+            norm += std::abs(coeffs[j]);
+        }
+        if (norm == 0.0) norm = 1.0;
+        Vector table(n + 1); // +1 guard point
+        for (int i = 0; i < n; ++i) {
+            double acc = 0.0;
+            for (int j = 0; j < nh; ++j)
+                acc += coeffs[j] * std::sin(2.0 * M_PI * (j + 1) * i / n);
+            table[i] = acc / norm;
+        }
+        table[n] = table[0]; // guard point
+        return make_vec(table);
+    };
+}
+
 // (osc sr freq table)
 // freq  : vector of instantaneous Hz values, one per output sample
 // table : wavetable with guard point (last sample == first sample)
@@ -568,37 +599,6 @@ static Proc fn_wavread() {
             }
         }
         throw std::runtime_error("wavread: no data chunk found in " + as_string(args[0]));
-    };
-}
-
-// (gen n c1 c2 c3 ...) — additive wavetable via gen10
-// Generates n+1 samples (with guard point) as a sum of sines:
-//   sample[i] = sum_j( cj * sin(2*pi*(j+1)*i/n) ) / sum(cj)
-// The guard point (last sample == first sample) is required by osc.
-// Example: (gen 4096 1) → pure sine  (gen 4096 1 0.5 0.25) → 3 harmonics
-static Proc fn_gen() {
-    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() < 2)
-            throw std::runtime_error("gen expects: n c1 [c2 ...]");
-        int n = (int)as_scalar(args[0]);
-        if (n <= 0) throw std::runtime_error("gen: n must be > 0");
-        int nh = (int)args.size() - 1;
-        std::vector<double> coeffs(nh);
-        double norm = 0.0;
-        for (int j = 0; j < nh; ++j) {
-            coeffs[j] = as_scalar(args[j + 1]);
-            norm += std::abs(coeffs[j]);
-        }
-        if (norm == 0.0) norm = 1.0;
-        Vector table(n + 1); // +1 guard point
-        for (int i = 0; i < n; ++i) {
-            double acc = 0.0;
-            for (int j = 0; j < nh; ++j)
-                acc += coeffs[j] * std::sin(2.0 * M_PI * (j + 1) * i / n);
-            table[i] = acc / norm;
-        }
-        table[n] = table[0]; // guard point
-        return make_vec(table);
     };
 }
 
