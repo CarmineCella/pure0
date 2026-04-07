@@ -350,8 +350,30 @@ static Proc make_numeric_unary(const std::function<double(double)>& f) {
         return make_vec(unop(as_vec(args[0]), f));
     };
 }
+
+static bool vec_equal(const Vector& a, const Vector& b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i)
+        if (a[i] != b[i]) return false;
+    return true;
+}
+static bool expr_equal(const ExprPtr& a, const ExprPtr& b) {
+    if (is_symbol(a) && is_symbol(b)) return as_symbol(a) == as_symbol(b);
+    if (is_string(a) && is_string(b)) return as_string(a) == as_string(b);
+    if (is_vec(a) && is_vec(b)) return vec_equal(as_vec(a), as_vec(b));
+    if (is_list(a) && is_list(b)) {
+        const auto& xs = std::get<Expr::List>(a->v);
+        const auto& ys = std::get<Expr::List>(b->v);
+        if (xs.size() != ys.size()) return false;
+        for (std::size_t i = 0; i < xs.size(); ++i)
+            if (!expr_equal(xs[i], ys[i])) return false;
+        return true;
+    }
+    return false;
+}
 static Proc fn_env() {
-    return [](const std::vector<ExprPtr>&, std::shared_ptr<Env> env) -> ExprPtr {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env> env) -> ExprPtr {
+        if (!args.empty()) throw std::runtime_error("env expects 0 args");
         std::vector<std::string> names;
         for (auto* e = env.get(); e; e = e->parent.get())
             for (const auto& kv : e->table)
@@ -416,22 +438,27 @@ static Proc fn_vec() {
     };
 }
 static Proc fn_nth() {
-    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr { 
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2) throw std::runtime_error("nth expects 2 args");
-        std::size_t n = static_cast<std::size_t>(as_scalar(args[1]));
+        double idx = as_scalar(args[1]);
+        if (idx < 0.0) throw std::runtime_error("nth expects a non-negative index");
+        std::size_t n = static_cast<std::size_t>(idx);
         if (is_list(args[0])) {
             const auto& xs = std::get<Expr::List>(args[0]->v);
-                if (n >= xs.size()) throw std::runtime_error("nth out of range");
-                return xs[n];
-            }
+            if (n >= xs.size()) throw std::runtime_error("nth out of range");
+            return xs[n];
+        }
         if (is_string(args[0])) {
-        const auto& s = as_string(args[0]);
+            const auto& s = as_string(args[0]);
             if (n >= s.size()) throw std::runtime_error("nth out of range");
             return make_string(std::string(1, s[n]));
         }
-        Vector x = as_vec(args[0]);
-        if (n >= x.size()) throw std::runtime_error("nth out of range");
-        return make_scalar(x[n]);
+        if (is_vec(args[0])) {
+            Vector x = as_vec(args[0]);
+            if (n >= x.size()) throw std::runtime_error("nth out of range");
+            return make_scalar(x[n]);
+        }
+        throw std::runtime_error("nth expects a list, string, or vector");
     };
 }
 static Proc fn_len() {
@@ -442,14 +469,26 @@ static Proc fn_len() {
         return make_scalar((double)as_vec(args[0]).size()); 
     };
 }
-static Proc fn_cat() {
-    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr { 
-        if (args.size() != 2) throw std::runtime_error("cat expects 2 args"); 
-        Vector a = as_vec(args[0]), b = as_vec(args[1]); 
-        Vector r(a.size() + b.size()); 
-        for (std::size_t i = 0; i < a.size(); ++i) r[i] = a[i]; 
-        for (std::size_t i = 0; i < b.size(); ++i) r[i + a.size()] = b[i]; 
-        return make_vec(r);
+static Proc fn_append() {
+    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 2) throw std::runtime_error("append expects 2 args");
+        if (is_list(args[0]) && is_list(args[1])) {
+            Expr::List xs = std::get<Expr::List>(args[0]->v);
+            const auto& ys = std::get<Expr::List>(args[1]->v);
+            xs.insert(xs.end(), ys.begin(), ys.end());
+            return make_list(xs);
+        }
+        if (is_string(args[0]) && is_string(args[1])) {
+            return make_string(as_string(args[0]) + as_string(args[1]));
+        }
+        if (is_vec(args[0]) && is_vec(args[1])) {
+            Vector a = as_vec(args[0]), b = as_vec(args[1]);
+            Vector r(a.size() + b.size());
+            for (std::size_t i = 0; i < a.size(); ++i) r[i] = a[i];
+            for (std::size_t i = 0; i < b.size(); ++i) r[i + a.size()] = b[i];
+            return make_vec(r);
+        }
+        throw std::runtime_error("append expects two lists, two strings, or two vectors");
     };
 }
 static Vector line(std::size_t n, double a, double b) {
@@ -498,14 +537,32 @@ static Proc fn_ones() {
 static Proc fn_slice() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 3) throw std::runtime_error("slice expects 3 args");
-        Vector v = as_vec(args[0]);
-        std::size_t i = static_cast<std::size_t>(as_scalar(args[1]));
-        std::size_t j = static_cast<std::size_t>(as_scalar(args[2]));
-        if (j > v.size()) j = v.size();
-        if (i >= j) return make_vec(Vector(0.0, 0));
-        Vector r(j - i);
-        for (std::size_t k = 0; k < r.size(); ++k) r[k] = v[i + k];
-        return make_vec(r);
+        double di = as_scalar(args[1]);
+        double dj = as_scalar(args[2]);
+        if (di < 0.0 || dj < 0.0) throw std::runtime_error("slice expects non-negative indices");
+        std::size_t i = static_cast<std::size_t>(di);
+        std::size_t j = static_cast<std::size_t>(dj);
+        if (is_vec(args[0])) {
+            Vector v = as_vec(args[0]);
+            if (j > v.size()) j = v.size();
+            if (i >= j) return make_vec(Vector(0.0, 0));
+            Vector r(j - i);
+            for (std::size_t k = 0; k < r.size(); ++k) r[k] = v[i + k];
+            return make_vec(r);
+        }
+        if (is_string(args[0])) {
+            const auto& s = as_string(args[0]);
+            if (j > s.size()) j = s.size();
+            if (i >= j) return make_string("");
+            return make_string(s.substr(i, j - i));
+        }
+        if (is_list(args[0])) {
+            const auto& xs = std::get<Expr::List>(args[0]->v);
+            if (j > xs.size()) j = xs.size();
+            if (i >= j) return make_list({});
+            return make_list(Expr::List(xs.begin() + i, xs.begin() + j));
+        }
+        throw std::runtime_error("slice expects a list, string, or vector");
     };
 }
 static Vector normalize(const Vector& x, double peak = 1.0) {
@@ -590,13 +647,26 @@ static Proc fn_mean() {
         return make_scalar(v.sum() / (double)v.size());
     };
 }
-static Proc fn_reverse_vec() {
+static Proc fn_reverse() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("reverse expects 1 arg");
-        Vector v = as_vec(args[0]);
-        Vector r(v.size());
-        for (std::size_t i = 0; i < v.size(); ++i) r[i] = v[v.size() - 1 - i];
-        return make_vec(r);
+        if (is_vec(args[0])) {
+            Vector v = as_vec(args[0]);
+            Vector r(v.size());
+            for (std::size_t i = 0; i < v.size(); ++i) r[i] = v[v.size() - 1 - i];
+            return make_vec(r);
+        }
+        if (is_string(args[0])) {
+            std::string s = as_string(args[0]);
+            std::reverse(s.begin(), s.end());
+            return make_string(s);
+        }
+        if (is_list(args[0])) {
+            Expr::List xs = std::get<Expr::List>(args[0]->v);
+            std::reverse(xs.begin(), xs.end());
+            return make_list(xs);
+        }
+        throw std::runtime_error("reverse expects a list, string, or vector");
     };
 }
 static Proc fn_sort() {
@@ -639,17 +709,9 @@ static Proc fn_null() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("null? expects 1 arg");
         if (is_list(args[0])) return make_scalar(std::get<Expr::List>(args[0]->v).empty() ? 1.0 : 0.0);
-        return make_scalar(0.0);
-    };
-}
-static Proc fn_append() {
-    return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 2 || !is_list(args[0]) || !is_list(args[1]))
-            throw std::runtime_error("append expects 2 list args");
-        Expr::List xs = std::get<Expr::List>(args[0]->v);
-        const auto& ys = std::get<Expr::List>(args[1]->v);
-        xs.insert(xs.end(), ys.begin(), ys.end());
-        return make_list(xs);
+        if (is_string(args[0])) return make_scalar(as_string(args[0]).empty() ? 1.0 : 0.0);
+        if (is_vec(args[0])) return make_scalar(as_vec(args[0]).size() == 0 ? 1.0 : 0.0);
+        throw std::runtime_error("null? expects a list, string, or vector");
     };
 }
 
@@ -663,9 +725,9 @@ static Proc fn_num() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1 || !is_string(args[0])) throw std::runtime_error("num expects 1 string arg");
         const std::string& s = as_string(args[0]);
-        char* end;
+        char* end = nullptr;
         double v = std::strtod(s.c_str(), &end);
-        if (end == s.c_str()) throw std::runtime_error("num: cannot parse \"" + s + "\"");
+        if (end == s.c_str() || *end != '\0') throw std::runtime_error("num: cannot parse \"" + s + "\"");
         return make_scalar(v);
     };
 }
@@ -801,7 +863,7 @@ static std::shared_ptr<Env> make_environment() {
     })));
     env->set("=",  make_proc([](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2) throw std::runtime_error("= expects 2 args");
-        return make_scalar(as_scalar(args[0]) == as_scalar(args[1]) ? 1.0 : 0.0);
+        return make_scalar(expr_equal(args[0], args[1]) ? 1.0 : 0.0);
     }));
     env->set("<",  make_proc([](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 2) throw std::runtime_error("< expects 2 args");
@@ -811,14 +873,18 @@ static std::shared_ptr<Env> make_environment() {
         if (args.size() != 2) throw std::runtime_error("> expects 2 args");
         return make_scalar(as_scalar(args[0]) > as_scalar(args[1]) ? 1.0 : 0.0);
     }));
+    env->set("<=",  make_proc([](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 2) throw std::runtime_error("<= expects 2 args");
+        return make_scalar(as_scalar(args[0]) <= as_scalar(args[1]) ? 1.0 : 0.0);
+    }));
+    env->set(">=",  make_proc([](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
+        if (args.size() != 2) throw std::runtime_error(">= expects 2 args");
+        return make_scalar(as_scalar(args[0]) >= as_scalar(args[1]) ? 1.0 : 0.0);
+    }));
     env->set("not", make_proc([](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 1) throw std::runtime_error("not expects 1 arg");
         return make_scalar(as_scalar(args[0]) == 0.0 ? 1.0 : 0.0);
-    }));    
-    env->set("str=", make_proc([](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 2) throw std::runtime_error("str= expects 2 args");
-        return make_scalar(to_string_value(args[0]) == to_string_value(args[1]) ? 1.0 : 0.0);
-    }));    
+    }));
     // environment
     env->set("env", make_proc(fn_env()));
     env->set("type",    make_proc(fn_type()));
@@ -836,7 +902,7 @@ static std::shared_ptr<Env> make_environment() {
     env->set("min", make_proc(fn_min()));
     env->set("max", make_proc(fn_max()));
     env->set("mean", make_proc(fn_mean()));
-    env->set("reverse", make_proc(fn_reverse_vec()));
+    env->set("reverse", make_proc(fn_reverse()));
     env->set("sort", make_proc(fn_sort()));
     env->set("list",   make_proc(fn_list()));
     env->set("vec",    make_proc(fn_vec()));
@@ -845,9 +911,9 @@ static std::shared_ptr<Env> make_environment() {
     env->set("tail",   make_proc(fn_tail()));
     env->set("null?",  make_proc(fn_null()));
     env->set("append", make_proc(fn_append()));
+    env->set("cat",    make_proc(fn_append()));
     env->set("nth",    make_proc(fn_nth()));
     env->set("len",    make_proc(fn_len()));
-    env->set("cat",    make_proc(fn_cat()));
     // I/O
     env->set("print", make_proc(fn_print()));
     env->set("read",  make_proc(fn_read()));

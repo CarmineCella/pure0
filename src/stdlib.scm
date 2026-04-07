@@ -81,11 +81,7 @@
   (if (null? xs) 1
     (if (pred (head xs)) (all pred (tail xs)) 0))))
 
-; equal? works across all types: numeric = for vecs, string identity otherwise
-(def equal? (lambda (a b)
-  (if (vec? a)
-    (= a b)
-    (str= a b))))
+(def equal? (lambda (a b) (= a b)))
 
 (def member? (lambda (x xs)
   (any (lambda (y) (equal? x y)) xs)))
@@ -95,17 +91,16 @@
 
 ; ── list restructuring ────────────────────────────────────────────────────────
 
-(def reverse-list (lambda (xs)
-  (reduce (lambda (acc x) (cons x acc)) '() xs)))
+(def reverse-list (lambda (xs) (reverse xs)))
 
-(def take (lambda (n xs)
+(def list-take (lambda (n xs)
   (if (= n 0) '()
     (if (null? xs) '()
-                   (cons (head xs) (take (- n 1) (tail xs)))))))
+                   (cons (head xs) (list-take (- n 1) (tail xs)))))))
 
-(def drop (lambda (n xs)
+(def list-drop (lambda (n xs)
   (if (= n 0) xs
-    (if (null? xs) '() (drop (- n 1) (tail xs))))))
+    (if (null? xs) '() (list-drop (- n 1) (tail xs))))))
 
 (def take-while (lambda (pred xs)
   (if (null? xs) '()
@@ -154,7 +149,7 @@
 ; ── association lists  (list of (key value) pairs) ───────────────────────────
 
 (def assoc (lambda (key alist)
-  (find (lambda (pair) (= (match (str (head pair)) (str key)) 1)) alist)))
+  (find (lambda (pair) (= (head pair) key)) alist)))
 
 (def assoc-get (lambda (key alist default)
   (def pair (assoc key alist))
@@ -167,7 +162,7 @@
 (def clamp     (lambda (lo hi x) (if (< x lo) lo (if (> x hi) hi x))))
 (def lerp      (lambda (a b t) (+ a (* (- b a) t))))
 (def norm      (lambda (v) (sqrt (sum (* v v)))))
-(def normalize (lambda (v) (/ v (norm v))))
+(def vnormalize (lambda (v) (/ v (norm v))))
 (def dot       (lambda (a b) (sum (* a b))))
 (def sign      (lambda (x) (if (< x 0) -1 (if (> x 0) 1 0))))
 
@@ -177,7 +172,7 @@
     (if (= i n) result
       (begin
         (def acc (+ acc (nth v i)))
-        (go (+ i 1) acc (cat result (vec acc)))))))
+        (go (+ i 1) acc (append result (vec acc)))))))
   (go 0 0 (vec))))
 
 ; ── string utilities ──────────────────────────────────────────────────────────

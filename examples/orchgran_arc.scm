@@ -18,7 +18,7 @@
 ; total duration in seconds (~6 minutes here; change if you want)
 (def dur 40)
 
-(def SOL (loaddb "/Users/n4/Projects/Media/Datasets/TinySOL"))
+(def SOL (loaddb "/Users/n4/Projects/Media/Datasets/StaticSOL"))
 
 ; ----------------------------------------------------------------------------
 ; orchestra
@@ -123,7 +123,8 @@
 
 (def style_schedule
   (list
-    (list 0   (list "ord"))))
+    (list 0   (list "ord"))
+    (list 20   (list "pizz" ))))
 
 ; ----------------------------------------------------------------------------
 ; dynamic groups over time

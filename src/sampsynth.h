@@ -1,4 +1,4 @@
-// samplesynth.h — orchestral sample database and sequencing layer for pure0
+// sampynth.h — orchestral sample database and sequencing layer for pure0
 //
 // Designed for SOL-style libraries whose filenames follow:
 //
@@ -9,13 +9,13 @@
 //
 // The database is symbolic and lazy:
 // - loaddb scans folders recursively and stores metadata + file paths
-// - audio is loaded only when needed by catalog-load / inst-* primitives
+// - audio is loaded only when needed by db-load / inst-* primitives
 //
 // Registration:
 //     add_samplesynth(env);
 
-#ifndef SAMPLESYNTH_H
-#define SAMPLESYNTH_H
+#ifndef SAMPSYNTH_H
+#define SAMPSYNTH_H
 
 #include "core.h"
 #include "dsp.h"
@@ -448,7 +448,7 @@ static Proc fn_readdb() {
 
 static Proc fn_db_stats() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 1) throw std::runtime_error("catalog-stats expects: catalog");
+        if (args.size() != 1) throw std::runtime_error("db-stats expects: catalog");
         const auto xs = db_entries(args[0]);
         Expr::List out;
         out.push_back(kv("entries", make_scalar((double)xs.size())));
@@ -458,7 +458,7 @@ static Proc fn_db_stats() {
 
 static Proc fn_db_instruments() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
-        if (args.size() != 1) throw std::runtime_error("catalog-instruments expects: catalog");
+        if (args.size() != 1) throw std::runtime_error("db-instruments expects: catalog");
         const auto xs = db_entries(args[0]);
         std::vector<std::string> names;
         for (const auto& e : xs) {
@@ -476,7 +476,7 @@ static Proc fn_db_instruments() {
 static Proc fn_db_pitches() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 2 || args.size() > 4 || !is_string(args[1]))
-            throw std::runtime_error("catalog-pitches expects: catalog instrument [articulation] [dynamic]");
+            throw std::runtime_error("db-pitches expects: catalog instrument [articulation] [dynamic]");
         auto xs = db_entries(args[0]);
         xs = filter_exact(xs, "instrument", as_string(args[1]));
         if (args.size() >= 3 && is_string(args[2])) xs = filter_exact(xs, "articulation", as_string(args[2]));
@@ -501,7 +501,7 @@ static Proc fn_db_pitches() {
 static Proc fn_db_filter() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 3 || !is_string(args[1]))
-            throw std::runtime_error("catalog-filter expects: catalog key value");
+            throw std::runtime_error("db-filter expects: catalog key value");
         const auto xs = db_entries(args[0]);
         const std::string key = as_string(args[1]);
         const std::string val = to_string_value(args[2]);
@@ -519,7 +519,7 @@ static Proc fn_db_filter() {
 static Proc fn_db_pick() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() != 5)
-            throw std::runtime_error("catalog-pick expects: catalog instrument articulation pitch dynamic");
+            throw std::runtime_error("db-pick expects: catalog instrument articulation pitch dynamic");
         auto xs = db_entries(args[0]);
         xs = filter_exact(xs, "instrument", to_string_value(args[1]));
         xs = filter_exact(xs, "articulation", to_string_value(args[2]));
@@ -533,7 +533,7 @@ static Proc fn_db_pick() {
 static Proc fn_db_rand() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 1 || args.size() > 4)
-            throw std::runtime_error("catalog-rand expects: catalog [instrument] [articulation] [dynamic]");
+            throw std::runtime_error("db-rand expects: catalog [instrument] [articulation] [dynamic]");
         auto xs = db_entries(args[0]);
         if (args.size() >= 2) xs = filter_exact(xs, "instrument", to_string_value(args[1]));
         if (args.size() >= 3) xs = filter_exact(xs, "articulation", to_string_value(args[2]));
@@ -545,7 +545,7 @@ static Proc fn_db_rand() {
 static Proc fn_db_nearest() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.size() < 4 || args.size() > 5)
-            throw std::runtime_error("catalog-nearest expects: catalog instrument midi dynamic [articulation]");
+            throw std::runtime_error("db-nearest expects: catalog instrument midi dynamic [articulation]");
         auto xs = db_entries(args[0]);
         xs = filter_exact(xs, "instrument", to_string_value(args[1]));
         xs = filter_exact(xs, "dynamic", to_string_value(args[3]));
@@ -574,7 +574,7 @@ static Proc fn_db_nearest() {
 static Proc fn_db_load() {
     return [](const std::vector<ExprPtr>& args, std::shared_ptr<Env>) -> ExprPtr {
         if (args.empty() || args.size() > 2)
-            throw std::runtime_error("catalog-load expects: entry-or-path [target_sr]");
+            throw std::runtime_error("db-load expects: entry-or-path [target_sr]");
         int target_sr = (args.size() == 2) ? (int)std::lround(as_scalar(args[1])) : 0;
         return make_vec(extract_db_signal(args[0], target_sr));
     };
@@ -1248,14 +1248,14 @@ static void add_sampsynth(std::shared_ptr<Env> env) {
     env->set("loaddb",          make_proc(fn_loaddb()));
     env->set("savedb",          make_proc(fn_savedb()));
     env->set("readdb",          make_proc(fn_readdb()));
-    env->set("catalog-stats",        make_proc(fn_db_stats()));
-    env->set("catalog-instruments",  make_proc(fn_db_instruments()));
-    env->set("catalog-pitches",      make_proc(fn_db_pitches()));
-    env->set("catalog-filter",       make_proc(fn_db_filter()));
-    env->set("catalog-pick",         make_proc(fn_db_pick()));
-    env->set("catalog-rand",         make_proc(fn_db_rand()));
-    env->set("catalog-nearest",      make_proc(fn_db_nearest()));
-    env->set("catalog-load",         make_proc(fn_db_load()));
+    env->set("db-stats",        make_proc(fn_db_stats()));
+    env->set("db-instruments",  make_proc(fn_db_instruments()));
+    env->set("db-pitches",      make_proc(fn_db_pitches()));
+    env->set("db-filter",       make_proc(fn_db_filter()));
+    env->set("db-pick",         make_proc(fn_db_pick()));
+    env->set("db-rand",         make_proc(fn_db_rand()));
+    env->set("db-nearest",      make_proc(fn_db_nearest()));
+    env->set("db-load",         make_proc(fn_db_load()));
     env->set("sample",          make_proc(fn_sample()));
     env->set("sample-reverse",  make_proc(fn_reverse_sample()));
     env->set("sample-trim",     make_proc(fn_trim_sample()));
@@ -1275,7 +1275,7 @@ static void add_sampsynth(std::shared_ptr<Env> env) {
     env->set("inst-gran-saveevents", make_proc(fn_orchgran_saveevents()));    
 }
 
-#endif // SAMPLESYNTH_H
+#endif // SAMPSYNTH_H
 
 
 // eof
